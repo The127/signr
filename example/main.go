@@ -24,7 +24,7 @@ func main() {
 		panic(fmt.Errorf("failed to create key manager: %w", err))
 	}
 
-	key, err := km.GetGroup("oci-token-signing").GetKey("EdDSA")
+	key, err := km.GetGroup("signing-key").GetKey("EdDSA")
 	if err != nil {
 		panic(fmt.Errorf("failed to get key: %w", err))
 	}
