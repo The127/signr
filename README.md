@@ -1,6 +1,6 @@
 # signr
 
-A small but smart Go library for managing signing keys and performing digital signatures.
+A backend agnostic go libarary for key management, rotation, creation, signgin and veryfying signatures with integrations into different backends.
 
 signr provides:
 - A KeyManager abstraction for organizing keys into named groups.
