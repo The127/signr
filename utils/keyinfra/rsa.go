@@ -13,8 +13,10 @@ import (
 	"time"
 )
 
+// RSAKeyStrategy implements the KeyAlgorithmStrategy interface for generating, importing, and exporting RSA key pairs.
 type RSAKeyStrategy struct{}
 
+// Generate creates a new RSA key pair with a 4096-bit private key and computes a key identifier (KID) based on the public key.
 func (s *RSAKeyStrategy) Generate(now time.Time) (*KeyPair, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
@@ -35,6 +37,8 @@ func (s *RSAKeyStrategy) Generate(now time.Time) (*KeyPair, error) {
 	}, nil
 }
 
+// computeRSAPublicKeyKid generates a key ID (kid) for an RSA public key based on its JWK Thumbprint (RFC 7638).
+// It returns the computed key ID and an error if any occurs during the process.
 func computeRSAPublicKeyKid(pub crypto.PublicKey) (string, error) {
 	// RFC 7638: JWK Thumbprint uses the public key fields only
 	jwk := map[string]string{
@@ -52,7 +56,7 @@ func computeRSAPublicKeyKid(pub crypto.PublicKey) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(hash[:]), nil
 }
 
-// bigIntToBytes encodes an int as a big-endian byte slice
+// bigIntToBytes converts an integer to its big-endian byte representation.
 func bigIntToBytes(i int) []byte {
 	if i == 0 {
 		return []byte{0}
@@ -65,6 +69,7 @@ func bigIntToBytes(i int) []byte {
 	return b
 }
 
+// Import parses the serialized private key and returns the decoded RSA private key, its public key, and any error encountered.
 func (s *RSAKeyStrategy) Import(serializedPrivateKey string) (any, any, error) {
 	block, _ := pem.Decode([]byte(serializedPrivateKey))
 	if block == nil || block.Type != "RSA PRIVATE KEY" {
@@ -79,6 +84,8 @@ func (s *RSAKeyStrategy) Import(serializedPrivateKey string) (any, any, error) {
 	return key, &key.PublicKey, nil
 }
 
+// Export converts an RSA private key to its PEM-encoded string representation.
+// Returns the PEM-encoded private key or an error if the input is not a valid *rsa.PrivateKey.
 func (s *RSAKeyStrategy) Export(privateKey any) (string, error) {
 	rsaPrivateKey, ok := privateKey.(*rsa.PrivateKey)
 	if !ok {

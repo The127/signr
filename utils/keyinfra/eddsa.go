@@ -11,8 +11,10 @@ import (
 	"time"
 )
 
+// EdDSAKeyStrategy implements the KeyAlgorithmStrategy interface for the EdDSA algorithm using ed25519 keys.
 type EdDSAKeyStrategy struct{}
 
+// Generate creates a new Ed25519 key pair and generates a unique key ID (kid) associated with the keys.
 func (s *EdDSAKeyStrategy) Generate(now time.Time) (*KeyPair, error) {
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -29,11 +31,14 @@ func (s *EdDSAKeyStrategy) Generate(now time.Time) (*KeyPair, error) {
 	}, nil
 }
 
+// computeEdCSAPublicKeyKid generates a key identifier (KID) for a given Ed25519 public key using SHA-256 hashing and Base64 encoding.
 func computeEdCSAPublicKeyKid(key ed25519.PublicKey) string {
 	hash := sha256.Sum256(key)
 	return base64.RawURLEncoding.EncodeToString(hash[:])
 }
 
+// Export exports an Ed25519 private key into a PEM-encoded PKCS#8 format string.
+// Returns the PEM-encoded private key string or an error if the input key type is invalid or marshalling fails.
 func (s *EdDSAKeyStrategy) Export(privateKey any) (string, error) {
 	ed25519PrivateKey, ok := privateKey.(ed25519.PrivateKey)
 	if !ok {
@@ -53,6 +58,7 @@ func (s *EdDSAKeyStrategy) Export(privateKey any) (string, error) {
 	return string(pem.EncodeToMemory(pemBlock)), nil
 }
 
+// Import decodes a PEM-encoded Ed25519 private key, parses it, and returns the private key, public key, or an error.
 func (s *EdDSAKeyStrategy) Import(serializedPrivateKey string) (any, any, error) {
 	block, _ := pem.Decode([]byte(serializedPrivateKey))
 	if block == nil {

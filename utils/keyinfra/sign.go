@@ -8,6 +8,9 @@ import (
 	"fmt"
 )
 
+// Sign generates a digital signature for the given data using the provided private key and hash algorithm.
+// It supports RSA and Ed25519 private keys.
+// Returns the signature as a byte slice or an error if signing fails.
 func Sign(privateKey crypto.PrivateKey, hash crypto.Hash, data []byte) ([]byte, error) {
 	switch privateKey := privateKey.(type) {
 	case *rsa.PrivateKey:
@@ -26,6 +29,8 @@ func Sign(privateKey crypto.PrivateKey, hash crypto.Hash, data []byte) ([]byte, 
 	}
 }
 
+// Verify validates the provided signature for the given data using the specified public key and hash algorithm.
+// It supports RSA and Ed25519 public key types and returns an error if verification fails or the key type is unsupported.
 func Verify(publicKey crypto.PublicKey, hash crypto.Hash, data, signature []byte) error {
 	switch publicKey := publicKey.(type) {
 	case *rsa.PublicKey:
