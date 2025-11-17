@@ -2,7 +2,6 @@ package jwt
 
 import (
 	"encoding/base64"
-	"fmt"
 
 	"github.com/The127/signr"
 )
@@ -22,13 +21,9 @@ func (s *Signer) Sign(signingString string, key interface{}) (string, error) {
 }
 
 func (s *Signer) Verify(signingString, signature string, key interface{}) error {
-	isValid, err := s.Key.Verify([]byte(signingString), []byte(signature))
+	err := s.Key.Verify([]byte(signingString), []byte(signature))
 	if err != nil {
 		return err
-	}
-
-	if !isValid {
-		return fmt.Errorf("invalid signature")
 	}
 
 	return nil
