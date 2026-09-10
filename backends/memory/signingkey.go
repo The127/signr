@@ -8,11 +8,8 @@ import (
 	"github.com/The127/signr/internal/keyinfra"
 )
 
-// keyVersions represents a list of signing keys, each associated with a key ID (KID) and cryptographic properties.
 type keyVersions []*signingKey
 
-// signingKey represents a cryptographic key pair used for signing and verifying data in a specific cryptographic algorithm.
-// It includes metadata such as the key ID (kid), algorithm, creation timestamp, and an active status indicating usage.
 type signingKey struct {
 	kid              string
 	algorithm        string
@@ -23,12 +20,12 @@ type signingKey struct {
 	active           bool
 }
 
-// Algorithm returns the name of the algorithm associated with the signing key.
+// Algorithm is the JWA name the key was created for.
 func (s signingKey) Algorithm() string {
 	return s.algorithm
 }
 
-// Sign generates a digital signature of the provided data using the signingKey's private key and hashing algorithm.
+// Sign signs data the way the algorithm prescribes.
 func (s signingKey) Sign(data []byte) ([]byte, error) {
 	signed, err := keyinfra.Sign(s.signer, s.hash, data)
 	if err != nil {
@@ -38,7 +35,7 @@ func (s signingKey) Sign(data []byte) ([]byte, error) {
 	return signed, nil
 }
 
-// Verify checks if the provided signature is valid for the given data using the signing key's public key and hash algorithm.
+// Verify checks a signature Sign produced over data.
 func (s signingKey) Verify(data []byte, signature []byte) error {
 	err := keyinfra.Verify(s.publicKey, s.hash, data, signature)
 	if err != nil {
@@ -48,17 +45,17 @@ func (s signingKey) Verify(data []byte, signature []byte) error {
 	return nil
 }
 
-// PublicKey returns the public key associated with the signingKey and an error if retrieval fails.
+// PublicKey is the public half of the key.
 func (s signingKey) PublicKey() (crypto.PublicKey, error) {
 	return s.publicKey, nil
 }
 
-// Signer returns the key as a crypto.Signer.
+// Signer is the key as a crypto.Signer.
 func (s signingKey) Signer() (crypto.Signer, error) {
 	return s.signer, nil
 }
 
-// KeyID returns the key identifier (kid) associated with the signing key.
+// KeyID is the RFC 7638 thumbprint of the public key.
 func (s signingKey) KeyID() string {
 	return s.kid
 }
