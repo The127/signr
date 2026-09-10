@@ -1,0 +1,54 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.13.2
+
+      - name: prose check
+        run: |
+          emdash=$(printf '\342\200\224')
+          if git grep -n "$emdash" -- ':!LICENSE'; then
+            echo "em-dashes found, replace them (see CLAUDE.md prose rules)"
+            exit 1
+          fi
+
+      - name: doc comment check
+        run: bash scripts/check-doc-comments.sh
+
+      - name: architecture check
+        run: go run github.com/arch-go/arch-go@v1.7.0
+
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+      - name: build and test
+        run: |
+          go build ./...
+          go test -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.out
+          flags: unit
