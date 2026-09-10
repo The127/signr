@@ -4,10 +4,8 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"time"
@@ -47,20 +45,16 @@ func (s *RSAKeyStrategy) Generate(now time.Time) (*KeyPair, error) {
 // computeRSAPublicKeyKid generates a key ID (kid) for an RSA public key based on its JWK Thumbprint (RFC 7638).
 // It returns the computed key ID and an error if any occurs during the process.
 func computeRSAPublicKeyKid(pub crypto.PublicKey) (string, error) {
-	// RFC 7638: JWK Thumbprint uses the public key fields only
-	jwk := map[string]string{
-		"e":   base64.RawURLEncoding.EncodeToString(bigIntToBytes(pub.(*rsa.PublicKey).E)),
+	rsaKey, ok := pub.(*rsa.PublicKey)
+	if !ok {
+		return "", fmt.Errorf("expected an rsa public key, got %T", pub)
+	}
+
+	return thumbprint(map[string]string{
+		"e":   base64.RawURLEncoding.EncodeToString(bigIntToBytes(rsaKey.E)),
 		"kty": "RSA",
-		"n":   base64.RawURLEncoding.EncodeToString(pub.(*rsa.PublicKey).N.Bytes()),
-	}
-
-	b, err := json.Marshal(jwk)
-	if err != nil {
-		return "", err
-	}
-
-	hash := sha256.Sum256(b)
-	return base64.RawURLEncoding.EncodeToString(hash[:]), nil
+		"n":   base64.RawURLEncoding.EncodeToString(rsaKey.N.Bytes()),
+	})
 }
 
 // bigIntToBytes converts an integer to its big-endian byte representation.

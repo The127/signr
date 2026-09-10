@@ -4,7 +4,6 @@ import (
 	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -27,7 +26,10 @@ func (s *EdDSAKeyStrategy) Generate(now time.Time) (*KeyPair, error) {
 		return nil, fmt.Errorf("generating key pair: %w", err)
 	}
 
-	kid := computeEdCSAPublicKeyKid(publicKey)
+	kid, err := computeEdDSAPublicKeyKid(publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("computing kid: %w", err)
+	}
 
 	return &KeyPair{
 		publicKey:  publicKey,
@@ -37,10 +39,13 @@ func (s *EdDSAKeyStrategy) Generate(now time.Time) (*KeyPair, error) {
 	}, nil
 }
 
-// computeEdCSAPublicKeyKid generates a key identifier (KID) for a given Ed25519 public key using SHA-256 hashing and Base64 encoding.
-func computeEdCSAPublicKeyKid(key ed25519.PublicKey) string {
-	hash := sha256.Sum256(key)
-	return base64.RawURLEncoding.EncodeToString(hash[:])
+// computeEdDSAPublicKeyKid is the RFC 7638 thumbprint of the key as an OKP JWK.
+func computeEdDSAPublicKeyKid(key ed25519.PublicKey) (string, error) {
+	return thumbprint(map[string]string{
+		"crv": "Ed25519",
+		"kty": "OKP",
+		"x":   base64.RawURLEncoding.EncodeToString(key),
+	})
 }
 
 // Export exports an Ed25519 private key into a PEM-encoded PKCS#8 format string.
