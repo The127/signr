@@ -30,6 +30,18 @@ func newKey(t *testing.T, algorithm string) signr.SigningKey {
 	return key
 }
 
+func TestAnUnknownAlgorithmIsRefusedInsteadOfPanicking(t *testing.T) {
+	// arrange
+	manager, err := signr.New(signr.Config{Backend: memory.Config{Clock: fixedClock{}}})
+	require.NoError(t, err)
+
+	// act
+	_, err = manager.GetGroup("signing").GetKey("ES256")
+
+	// assert
+	assert.ErrorContains(t, err, "ES256")
+}
+
 func TestAnEdDSAKeySignsWhatTheStandardLibraryVerifies(t *testing.T) {
 	// arrange
 	key := newKey(t, "EdDSA")

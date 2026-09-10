@@ -43,7 +43,11 @@ func (g *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 		}
 	}
 
-	keyStrategy := keyinfra.GetKeyStrategy(jwa)
+	keyStrategy, err := keyinfra.GetKeyStrategy(jwa)
+	if err != nil {
+		return nil, err
+	}
+
 	keyPair, err := keyStrategy.Generate(g.clock.Now())
 	if err != nil {
 		return nil, fmt.Errorf("generating key pair: %w", err)
@@ -57,6 +61,7 @@ func (g *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 	key := &signingKey{
 		kid:              keyPair.Kid(),
 		algorithm:        jwa,
+		hash:             keyStrategy.Hash(),
 		publicKey:        keyPair.PublicKey(),
 		signer:           signer,
 		createdTimestamp: keyPair.CreatedAt(),

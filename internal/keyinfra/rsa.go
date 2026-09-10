@@ -14,7 +14,14 @@ import (
 )
 
 // RSAKeyStrategy implements the KeyAlgorithmStrategy interface for generating, importing, and exporting RSA key pairs.
-type RSAKeyStrategy struct{}
+type RSAKeyStrategy struct {
+	hash crypto.Hash
+}
+
+// Hash is the digest the algorithm signs, SHA-256 for RS256 and so on.
+func (s *RSAKeyStrategy) Hash() crypto.Hash {
+	return s.hash
+}
 
 // Generate creates a new RSA key pair with a 4096-bit private key and computes a key identifier (KID) based on the public key.
 func (s *RSAKeyStrategy) Generate(now time.Time) (*KeyPair, error) {

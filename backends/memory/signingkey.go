@@ -16,6 +16,7 @@ type keyVersions []*signingKey
 type signingKey struct {
 	kid              string
 	algorithm        string
+	hash             crypto.Hash
 	publicKey        crypto.PublicKey
 	signer           crypto.Signer
 	createdTimestamp time.Time
@@ -27,25 +28,9 @@ func (s signingKey) Algorithm() string {
 	return s.algorithm
 }
 
-// getHashAlgorithm determines and returns the appropriate hash algorithm based on the signing algorithm of the key.
-func (s signingKey) getHashAlgorithm() crypto.Hash {
-	switch s.algorithm {
-	case "RS256":
-		return crypto.SHA256
-	case "RS384":
-		return crypto.SHA384
-	case "RS512":
-		return crypto.SHA512
-	case "EdDSA":
-		return crypto.Hash(0)
-	default:
-		panic(fmt.Sprintf("unsupported algorithm: %s", s.algorithm))
-	}
-}
-
 // Sign generates a digital signature of the provided data using the signingKey's private key and hashing algorithm.
 func (s signingKey) Sign(data []byte) ([]byte, error) {
-	signed, err := keyinfra.Sign(s.signer, s.getHashAlgorithm(), data)
+	signed, err := keyinfra.Sign(s.signer, s.hash, data)
 	if err != nil {
 		return nil, fmt.Errorf("signing data: %w", err)
 	}
@@ -55,7 +40,7 @@ func (s signingKey) Sign(data []byte) ([]byte, error) {
 
 // Verify checks if the provided signature is valid for the given data using the signing key's public key and hash algorithm.
 func (s signingKey) Verify(data []byte, signature []byte) error {
-	err := keyinfra.Verify(s.publicKey, s.getHashAlgorithm(), data, signature)
+	err := keyinfra.Verify(s.publicKey, s.hash, data, signature)
 	if err != nil {
 		return fmt.Errorf("verifying signature: %w", err)
 	}

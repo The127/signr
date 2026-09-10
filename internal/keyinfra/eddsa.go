@@ -1,6 +1,7 @@
 package keyinfra
 
 import (
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
@@ -13,6 +14,11 @@ import (
 
 // EdDSAKeyStrategy implements the KeyAlgorithmStrategy interface for the EdDSA algorithm using ed25519 keys.
 type EdDSAKeyStrategy struct{}
+
+// Hash is zero, Ed25519 signs the message itself.
+func (s *EdDSAKeyStrategy) Hash() crypto.Hash {
+	return 0
+}
 
 // Generate creates a new Ed25519 key pair and generates a unique key ID (kid) associated with the keys.
 func (s *EdDSAKeyStrategy) Generate(now time.Time) (*KeyPair, error) {
