@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"crypto"
 	"fmt"
 	"sync"
 
@@ -48,11 +49,16 @@ func (g *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 		return nil, fmt.Errorf("generating key pair: %w", err)
 	}
 
+	signer, ok := keyPair.PrivateKey().(crypto.Signer)
+	if !ok {
+		return nil, fmt.Errorf("generated %s key of type %T cannot sign", jwa, keyPair.PrivateKey())
+	}
+
 	key := &signingKey{
 		kid:              keyPair.Kid(),
 		algorithm:        jwa,
 		publicKey:        keyPair.PublicKey(),
-		privateKey:       keyPair.PrivateKey(),
+		signer:           signer,
 		createdTimestamp: keyPair.CreatedAt(),
 		active:           true,
 	}

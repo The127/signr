@@ -13,6 +13,10 @@ type SigningKey interface {
 	// PublicKey retrieves the public key associated with the SigningKey for verification or distribution purposes.
 	PublicKey() (crypto.PublicKey, error)
 
+	// Signer exposes the key as a crypto.Signer for the standard library's TLS, SSH and certificate APIs. The private
+	// key stays with the backend, only signatures come out.
+	Signer() (crypto.Signer, error)
+
 	// Algorithm returns the name of the cryptographic algorithm associated with the key, e.g., "RS256".
 	Algorithm() string
 

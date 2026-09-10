@@ -17,7 +17,7 @@ type signingKey struct {
 	kid              string
 	algorithm        string
 	publicKey        crypto.PublicKey
-	privateKey       crypto.PrivateKey
+	signer           crypto.Signer
 	createdTimestamp time.Time
 	active           bool
 }
@@ -45,7 +45,7 @@ func (s signingKey) getHashAlgorithm() crypto.Hash {
 
 // Sign generates a digital signature of the provided data using the signingKey's private key and hashing algorithm.
 func (s signingKey) Sign(data []byte) ([]byte, error) {
-	signed, err := keyinfra.Sign(s.privateKey, s.getHashAlgorithm(), data)
+	signed, err := keyinfra.Sign(s.signer, s.getHashAlgorithm(), data)
 	if err != nil {
 		return nil, fmt.Errorf("signing data: %w", err)
 	}
@@ -66,6 +66,11 @@ func (s signingKey) Verify(data []byte, signature []byte) error {
 // PublicKey returns the public key associated with the signingKey and an error if retrieval fails.
 func (s signingKey) PublicKey() (crypto.PublicKey, error) {
 	return s.publicKey, nil
+}
+
+// Signer returns the key as a crypto.Signer.
+func (s signingKey) Signer() (crypto.Signer, error) {
+	return s.signer, nil
 }
 
 // KeyID returns the key identifier (kid) associated with the signing key.
