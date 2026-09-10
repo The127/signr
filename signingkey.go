@@ -4,7 +4,6 @@ import "crypto"
 
 // SigningKey represents an interface for cryptographic signing operations and metadata retrieval.
 type SigningKey interface {
-
 	// Sign generates a digital signature for the provided data using the private key associated with the SigningKey.
 	Sign(data []byte) ([]byte, error)
 

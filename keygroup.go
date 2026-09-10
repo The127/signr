@@ -4,7 +4,6 @@ import "fmt"
 
 // KeyGroup defines an interface for retrieving signing keys based on a specified JSON Web Algorithm (JWA).
 type KeyGroup interface {
-
 	// GetKey retrieves the signing key corresponding to the specified JSON Web Algorithm (JWA).
 	GetKey(jwa string) (SigningKey, error)
 }
@@ -15,7 +14,7 @@ type errorGroup struct {
 }
 
 // GetKey retrieves a SigningKey based on the provided JWA algorithm or returns an error if one is present in the group.
-func (g *errorGroup) GetKey(jwa string) (SigningKey, error) {
+func (g *errorGroup) GetKey(_ string) (SigningKey, error) {
 	return nil, g.err
 }
 

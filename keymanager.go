@@ -5,7 +5,6 @@ import "fmt"
 // KeyManager defines an interface for managing cryptographic key groups used in signing and verification operations.
 // GetGroup provides access to a KeyGroup by name, allowing optional configurations through GroupOptions parameters.
 type KeyManager interface {
-
 	// GetGroup retrieves a KeyGroup by its name, with optional configurations applied through variadic GroupOption parameters.
 	GetGroup(name string, opts ...GroupOption) KeyGroup
 }
@@ -30,8 +29,7 @@ type keyManager struct {
 type GroupOption func(*GroupOptions)
 
 // GroupOptions provides configuration options for managing groups, such as enabling automatic creation of missing groups.
-type GroupOptions struct {
-}
+type GroupOptions struct{}
 
 // GetGroup retrieves a KeyGroup by its name with optional customization via GroupOptions. Returns an errorGroup on failure.
 func (k *keyManager) GetGroup(name string, opts ...GroupOption) KeyGroup {

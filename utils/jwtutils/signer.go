@@ -1,8 +1,9 @@
 package jwtutils
 
 import (
-	"github.com/The127/signr"
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/The127/signr"
 )
 
 // jwtSigningMethod represents a JWT signing method using a cryptographic SigningKey.

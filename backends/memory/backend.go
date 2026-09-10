@@ -16,7 +16,7 @@ type backend struct {
 // GetGroup retrieves or initializes a signing key group by its name.
 // If the group does not exist, it creates a new one and adds it to the backend.
 // Returns the corresponding BackendGroup and any error encountered during execution.
-func (b *backend) GetGroup(name string, opts signr.GroupOptions) (signr.BackendGroup, error) {
+func (b *backend) GetGroup(name string, _ signr.GroupOptions) (signr.BackendGroup, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
