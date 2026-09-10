@@ -1,6 +1,8 @@
 package jwtmethod
 
 import (
+	"errors"
+
 	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/The127/signr"
@@ -36,8 +38,7 @@ func (s *jwtSigningMethod) Sign(signingString string, _ any) ([]byte, error) {
 	return sig, nil
 }
 
-// Verify always panics as it should never be invoked for this implementation.
-// Instead, the signing keys public key should be used to verify the signature locally.
+// Verify refuses, a token is verified with the key's public key and the standard jwt method for its algorithm.
 func (s *jwtSigningMethod) Verify(_ string, _ []byte, _ any) error {
-	panic("this method should never be called")
+	return errors.New("this method only signs, verify with the signing key's public key")
 }
