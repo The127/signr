@@ -1,6 +1,6 @@
 module github.com/The127/signr
 
-go 1.25
+go 1.26
 
 require github.com/golang-jwt/jwt/v5 v5.3.1
 
