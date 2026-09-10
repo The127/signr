@@ -1,0 +1,36 @@
+# Package dependency rules, checked by `just arch`. Patterns are regular
+# expressions after arch-go's rewriting, so a single package is anchored
+# with $ and `x.**` covers x and everything below it.
+version: 1
+threshold:
+  compliance: 100
+  coverage: 100
+dependenciesRules:
+  # the root package is the vocabulary, it never sees a backend
+  - package: '**.signr$'
+    shouldNotDependsOn:
+      internal:
+        - '**.signr.backends.**'
+        - '**.signr.utils.**'
+        - '**.signr.example$'
+  # key primitives depend on nothing of ours
+  - package: '**.signr.utils.keyinfra$'
+    shouldNotDependsOn:
+      internal:
+        - '**.signr.**'
+  # jwt glue adapts a signing key, it never picks a backend
+  - package: '**.signr.utils.jwtutils$'
+    shouldOnlyDependsOn:
+      internal:
+        - '**.signr$'
+  # backends know the vocabulary and the primitives, not each other
+  - package: '**.signr.backends.*'
+    shouldOnlyDependsOn:
+      internal:
+        - '**.signr$'
+        - '**.signr.utils.keyinfra$'
+  # the example wires everything, like a consumer would
+  - package: '**.signr.example$'
+    shouldNotDependsOn:
+      internal:
+        - '**.signr.utils.**'

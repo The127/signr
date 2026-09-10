@@ -1,0 +1,45 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - copyloopvar
+    - errname
+    - errorlint
+    - exhaustive
+    - gocritic
+    - gosec
+    - intrange
+    - misspell
+    - nilerr
+    - nolintlint
+    - revive
+    - unconvert
+    - unparam
+    - usestdlibvars
+  exclusions:
+    rules:
+      # tests are not attack surface
+      - path: _test\.go$
+        linters:
+          - gosec
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+    nolintlint:
+      require-explanation: true
+    staticcheck:
+      checks:
+        - all
+        # S1016 prefers struct conversions over explicit literals. House
+        # style is the explicit literal.
+        - -S1016
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/The127/signr
