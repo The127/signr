@@ -11,15 +11,16 @@ dependenciesRules:
     shouldNotDependsOn:
       internal:
         - '**.signr.backends.**'
-        - '**.signr.utils.**'
+        - '**.signr.internal.**'
+        - '**.signr.jwtmethod$'
         - '**.signr.example$'
   # key primitives depend on nothing of ours
-  - package: '**.signr.utils.keyinfra$'
+  - package: '**.signr.internal.keyinfra$'
     shouldNotDependsOn:
       internal:
         - '**.signr.**'
   # jwt glue adapts a signing key, it never picks a backend
-  - package: '**.signr.utils.jwtutils$'
+  - package: '**.signr.jwtmethod$'
     shouldOnlyDependsOn:
       internal:
         - '**.signr$'
@@ -28,9 +29,9 @@ dependenciesRules:
     shouldOnlyDependsOn:
       internal:
         - '**.signr$'
-        - '**.signr.utils.keyinfra$'
+        - '**.signr.internal.keyinfra$'
   # the example wires everything, like a consumer would
   - package: '**.signr.example$'
     shouldNotDependsOn:
       internal:
-        - '**.signr.utils.**'
+        - '**.signr.internal.**'

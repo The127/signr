@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/The127/signr/utils/keyinfra"
+	"github.com/The127/signr/internal/keyinfra"
 )
 
 func TestSignRefusesAHashForEd25519(t *testing.T) {

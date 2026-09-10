@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/The127/signr/utils/keyinfra"
+	"github.com/The127/signr/internal/keyinfra"
 )
 
 // keyVersions represents a list of signing keys, each associated with a key ID (KID) and cryptographic properties.

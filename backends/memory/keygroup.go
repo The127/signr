@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/The127/signr"
-	"github.com/The127/signr/utils/keyinfra"
+	"github.com/The127/signr/internal/keyinfra"
 )
 
 // keyGroup manages signing keys grouped by JWA algorithm name.
