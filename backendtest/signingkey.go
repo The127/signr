@@ -2,6 +2,8 @@ package backendtest
 
 import (
 	"crypto/ed25519"
+	"crypto/rsa"
+	"reflect"
 )
 
 func (s *Suite) TestAnUnknownAlgorithmIsRefusedInsteadOfPanicking() {
@@ -69,4 +71,75 @@ func (s *Suite) TestASignerHoldsTheKeysPublicKey() {
 	// assert
 	s.Require().NoError(err)
 	s.Equal(publicKey, signer.Public())
+}
+
+func (s *Suite) TestASignerHoldsNoPrivateKeyReflectionCanReach() {
+	for _, algorithm := range []string{"EdDSA", "RS256", "RS384", "RS512"} {
+		s.Run(algorithm, func() {
+			// arrange
+			key := s.newKey(algorithm)
+			signer, err := key.Signer()
+			s.Require().NoError(err)
+
+			// act
+			reaches := reachesPrivateKey(reflect.ValueOf(signer))
+
+			// assert
+			s.False(reaches)
+		})
+	}
+}
+
+func reachesPrivateKey(value reflect.Value) bool {
+	if !value.IsValid() {
+		return false
+	}
+
+	if value.Type() == reflect.TypeFor[ed25519.PrivateKey]() {
+		return true
+	}
+
+	if value.Type() == reflect.TypeFor[rsa.PrivateKey]() {
+		return true
+	}
+
+	switch value.Kind() {
+	case reflect.Pointer, reflect.Interface:
+		return reachesPrivateKey(value.Elem())
+
+	case reflect.Struct:
+		for index := range value.NumField() {
+			if reachesPrivateKey(value.Field(index)) {
+				return true
+			}
+		}
+
+		return false
+
+	case reflect.Slice, reflect.Array:
+		for index := range value.Len() {
+			if reachesPrivateKey(value.Index(index)) {
+				return true
+			}
+		}
+
+		return false
+
+	case reflect.Map:
+		iterator := value.MapRange()
+		for iterator.Next() {
+			if reachesPrivateKey(iterator.Key()) {
+				return true
+			}
+
+			if reachesPrivateKey(iterator.Value()) {
+				return true
+			}
+		}
+
+		return false
+
+	default:
+		return false
+	}
 }

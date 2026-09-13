@@ -52,7 +52,10 @@ func (s signingKey) PublicKey() (crypto.PublicKey, error) {
 
 // Signer is the key as a crypto.Signer.
 func (s signingKey) Signer() (crypto.Signer, error) {
-	return s.signer, nil
+	return opaqueSigner{
+		public: s.signer.Public(),
+		sign:   s.signer.Sign,
+	}, nil
 }
 
 // KeyID is the RFC 7638 thumbprint of the public key.
