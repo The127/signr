@@ -62,3 +62,22 @@ func (g *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 
 	return key, nil
 }
+
+// PublicKeys returns the public half of every key version in the group, generating none.
+func (g *keyGroup) PublicKeys() ([]signr.PublicKey, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	publicKeys := []signr.PublicKey{}
+	for _, versions := range g.keys {
+		for _, key := range versions {
+			publicKeys = append(publicKeys, signr.PublicKey{
+				KeyID:     key.kid,
+				Algorithm: key.algorithm,
+				Key:       key.publicKey,
+			})
+		}
+	}
+
+	return publicKeys, nil
+}
