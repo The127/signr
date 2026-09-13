@@ -30,6 +30,11 @@ dependenciesRules:
       internal:
         - '**.signr$'
         - '**.signr.internal.keyinfra$'
+  # the contract suite speaks the vocabulary only, never a backend
+  - package: '**.signr.backendtest$'
+    shouldOnlyDependsOn:
+      internal:
+        - '**.signr$'
   # the example wires everything, like a consumer would
   - package: '**.signr.example$'
     shouldNotDependsOn:

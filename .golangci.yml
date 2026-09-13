@@ -23,6 +23,12 @@ linters:
       - path: _test\.go$
         linters:
           - gosec
+      # contract suite methods must be exported for testify to find them,
+      # the test name is the documentation
+      - path: ^backendtest/
+        linters:
+          - revive
+        text: exported method Suite\.Test
   settings:
     exhaustive:
       default-signifies-exhaustive: true
