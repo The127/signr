@@ -10,6 +10,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/The127/signr/internal/keyinfra"
 )
 
 var transitHashNames = map[crypto.Hash]string{
@@ -22,12 +24,7 @@ type transitSigner struct {
 	transit transit
 	name    string
 	version int
-	public  crypto.PublicKey
-}
-
-// Public is the public half of the key version the signer signs with.
-func (signer transitSigner) Public() crypto.PublicKey {
-	return signer.public
+	public  keyinfra.KeptPublicKey
 }
 
 // Sign asks Transit to sign the digest with the signer's key version, refusing options Transit would not honour.
@@ -63,7 +60,7 @@ func (signer transitSigner) Sign(_ io.Reader, digest []byte, opts crypto.SignerO
 }
 
 func (signer transitSigner) verify(digest []byte, opts crypto.SignerOpts, signature []byte) error {
-	switch public := signer.public.(type) {
+	switch public := signer.public.Copy().(type) {
 	case ed25519.PublicKey:
 		if !ed25519.Verify(public, digest, signature) {
 			return errors.New("transit answered a signature the key does not verify")
@@ -80,43 +77,23 @@ func (signer transitSigner) verify(digest []byte, opts crypto.SignerOpts, signat
 		return nil
 
 	default:
-		return fmt.Errorf("unsupported key type %T", signer.public)
+		return fmt.Errorf("unsupported key type %T", public)
 	}
 }
 
+// keyinfra.OpaqueSigner checks opts before this is reached, it is the only way in
 func (signer transitSigner) signRequest(digest []byte, opts crypto.SignerOpts) (signRequest, error) {
-	if opts == nil {
-		return signRequest{}, errors.New("signing needs options naming the hash")
-	}
-
-	switch signer.public.(type) {
+	switch public := signer.public.Copy().(type) {
 	case ed25519.PublicKey:
-		if opts.HashFunc() != 0 {
-			return signRequest{}, fmt.Errorf("ed25519 signs the message itself, not a %s digest", opts.HashFunc())
-		}
-
-		if contextOf(opts) != "" {
-			return signRequest{}, errors.New("transit signs plain ed25519, without a context")
-		}
-
 		return signRequest{
 			Input:      base64.StdEncoding.EncodeToString(digest),
 			KeyVersion: signer.version,
 		}, nil
 
 	case *rsa.PublicKey:
-		_, isPSS := opts.(*rsa.PSSOptions)
-		if isPSS {
-			return signRequest{}, errors.New("transit rsa keys sign pkcs1v15 here, not pss")
-		}
-
 		hashName, found := transitHashNames[opts.HashFunc()]
 		if !found {
 			return signRequest{}, fmt.Errorf("transit rsa keys sign no %s digest here", opts.HashFunc())
-		}
-
-		if len(digest) != opts.HashFunc().Size() {
-			return signRequest{}, fmt.Errorf("a %s digest is %d bytes, not %d", opts.HashFunc(), opts.HashFunc().Size(), len(digest))
 		}
 
 		return signRequest{
@@ -128,15 +105,6 @@ func (signer transitSigner) signRequest(digest []byte, opts crypto.SignerOpts) (
 		}, nil
 
 	default:
-		return signRequest{}, fmt.Errorf("unsupported key type %T", signer.public)
+		return signRequest{}, fmt.Errorf("unsupported key type %T", public)
 	}
-}
-
-func contextOf(opts crypto.SignerOpts) string {
-	options, isOptions := opts.(*ed25519.Options)
-	if !isOptions {
-		return ""
-	}
-
-	return options.Context
 }

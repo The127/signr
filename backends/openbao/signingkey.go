@@ -11,7 +11,8 @@ type signingKey struct {
 	kid       string
 	algorithm string
 	hash      crypto.Hash
-	signer    transitSigner
+	public    keyinfra.KeptPublicKey
+	signer    keyinfra.OpaqueSigner
 }
 
 // Algorithm is the JWA name the key was created for.
@@ -31,7 +32,7 @@ func (key signingKey) Sign(data []byte) ([]byte, error) {
 
 // Verify checks a signature Sign produced over data, without asking Transit.
 func (key signingKey) Verify(data []byte, signature []byte) error {
-	err := keyinfra.Verify(key.signer.public, key.hash, data, signature)
+	err := keyinfra.Verify(key.public.Copy(), key.hash, data, signature)
 	if err != nil {
 		return fmt.Errorf("verifying signature: %w", err)
 	}
@@ -39,9 +40,9 @@ func (key signingKey) Verify(data []byte, signature []byte) error {
 	return nil
 }
 
-// PublicKey is the public half of the key version.
+// PublicKey is a copy of the public half of the key version, which the caller owns.
 func (key signingKey) PublicKey() (crypto.PublicKey, error) {
-	return key.signer.public, nil
+	return key.public.Copy(), nil
 }
 
 // Signer is the key version as a crypto.Signer that asks Transit for every signature.

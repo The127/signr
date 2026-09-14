@@ -47,12 +47,17 @@ func (g *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 		return nil, fmt.Errorf("generated %s key of type %T cannot sign", jwa, keyPair.PrivateKey())
 	}
 
+	publicKey, err := keyinfra.KeepPublicKey(keyPair.PublicKey())
+	if err != nil {
+		return nil, err
+	}
+
 	key := &signingKey{
 		kid:              keyPair.Kid(),
 		algorithm:        jwa,
 		hash:             keyStrategy.Hash(),
-		publicKey:        keyPair.PublicKey(),
-		signer:           signer,
+		publicKey:        publicKey,
+		signer:           keyinfra.NewOpaqueSigner(publicKey, signer.Sign),
 		createdTimestamp: keyPair.CreatedAt(),
 		active:           true,
 	}
@@ -74,7 +79,7 @@ func (g *keyGroup) PublicKeys() ([]signr.PublicKey, error) {
 			publicKeys = append(publicKeys, signr.PublicKey{
 				KeyID:     key.kid,
 				Algorithm: key.algorithm,
-				Key:       key.publicKey,
+				Key:       key.publicKey.Copy(),
 			})
 		}
 	}
