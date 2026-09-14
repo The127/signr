@@ -104,6 +104,21 @@ func (s *Suite) TestASignerHoldsNoPrivateKeyReflectionCanReach() {
 	}
 }
 
+func (s *Suite) TestAKeyNamesTheAlgorithmItWasAskedFor() {
+	for _, algorithm := range []string{"EdDSA", "RS256", "RS384", "RS512"} {
+		s.Run(algorithm, func() {
+			// arrange
+			key := s.newKey(algorithm)
+
+			// act
+			named := key.Algorithm()
+
+			// assert
+			s.Equal(algorithm, named)
+		})
+	}
+}
+
 func (s *Suite) TestASigningKeyHoldsNoPrivateKeyReflectionCanReach() {
 	for _, algorithm := range []string{"EdDSA", "RS256", "RS384", "RS512"} {
 		s.Run(algorithm, func() {

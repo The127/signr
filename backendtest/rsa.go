@@ -5,22 +5,40 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/sha512"
 )
 
 func (s *Suite) TestAnRSAKeySignsWhatTheStandardLibraryVerifies() {
-	// arrange
-	key := s.newKey("RS256")
 	message := []byte("hello")
-	digest := sha256.Sum256(message)
+	sha256Digest := sha256.Sum256(message)
+	sha384Digest := sha512.Sum384(message)
+	sha512Digest := sha512.Sum512(message)
 
-	// act
-	signature, err := key.Sign(message)
+	cases := []struct {
+		algorithm string
+		hash      crypto.Hash
+		digest    []byte
+	}{
+		{"RS256", crypto.SHA256, sha256Digest[:]},
+		{"RS384", crypto.SHA384, sha384Digest[:]},
+		{"RS512", crypto.SHA512, sha512Digest[:]},
+	}
 
-	// assert
-	s.Require().NoError(err)
-	publicKey, err := key.PublicKey()
-	s.Require().NoError(err)
-	s.NoError(rsa.VerifyPKCS1v15(publicKey.(*rsa.PublicKey), crypto.SHA256, digest[:], signature))
+	for _, signed := range cases {
+		s.Run(signed.algorithm, func() {
+			// arrange
+			key := s.newKey(signed.algorithm)
+
+			// act
+			signature, err := key.Sign(message)
+
+			// assert
+			s.Require().NoError(err)
+			publicKey, err := key.PublicKey()
+			s.Require().NoError(err)
+			s.NoError(rsa.VerifyPKCS1v15(publicKey.(*rsa.PublicKey), signed.hash, signed.digest, signature))
+		})
+	}
 }
 
 func (s *Suite) TestAnRSAKeyVerifiesItsOwnSignature() {
