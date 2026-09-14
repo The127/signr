@@ -155,6 +155,21 @@ func TestCreateRefusesAConfigWithoutTokenSourceInsteadOfPanicking(t *testing.T) 
 	assert.ErrorContains(t, err, "token")
 }
 
+func TestCreateRefusesATokenSourceThatIsANilPointerInsteadOfPanicking(t *testing.T) {
+	// arrange
+	config := openbao.Config{
+		Address: "http://127.0.0.1:8200",
+		Mount:   "transit",
+		Token:   (*openbao.StaticToken)(nil),
+	}
+
+	// act
+	_, err := config.Create()
+
+	// assert
+	assert.ErrorContains(t, err, "token")
+}
+
 func TestAGroupNameThatWouldLeaveTheKeyPathIsRefused(t *testing.T) {
 	// arrange
 	reached := false

@@ -3,6 +3,7 @@ package openbao
 import (
 	"errors"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -46,6 +47,10 @@ func (config Config) Create() (signr.Backend, error) {
 		return nil, errors.New("openbao backend needs a token source")
 	}
 
+	if isNilInside(config.Token) {
+		return nil, errors.New("openbao backend needs a token source, not a nil one")
+	}
+
 	return &backend{
 		transit: transit{
 			address: strings.TrimRight(config.Address, "/"),
@@ -60,4 +65,16 @@ func (config Config) Create() (signr.Backend, error) {
 			},
 		},
 	}, nil
+}
+
+// a nil pointer inside the interface is not nil, and calling its Token would panic
+func isNilInside(source TokenSource) bool {
+	value := reflect.ValueOf(source)
+	switch value.Kind() {
+	case reflect.Pointer, reflect.Func, reflect.Map, reflect.Chan, reflect.Slice, reflect.Interface:
+		return value.IsNil()
+
+	default:
+		return false
+	}
 }

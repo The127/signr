@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -17,8 +18,12 @@ type Config struct {
 	Clock Clock
 }
 
-// Create initializes and returns a new instance of signr.Backend with default configuration values.
+// Create returns an empty in-memory backend, refusing a config without a clock.
 func (c Config) Create() (signr.Backend, error) {
+	if c.Clock == nil {
+		return nil, errors.New("memory backend needs a clock")
+	}
+
 	return &backend{
 		mu:     sync.Mutex{},
 		groups: map[string]*keyGroup{},
