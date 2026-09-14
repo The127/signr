@@ -48,11 +48,14 @@ func (g *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 	}
 
 	key := &signingKey{
-		kid:              keyPair.Kid(),
-		algorithm:        jwa,
-		hash:             keyStrategy.Hash(),
-		publicKey:        keyPair.PublicKey(),
-		signer:           signer,
+		kid:       keyPair.Kid(),
+		algorithm: jwa,
+		hash:      keyStrategy.Hash(),
+		publicKey: keyPair.PublicKey(),
+		signer: opaqueSigner{
+			public: signer.Public(),
+			sign:   signer.Sign,
+		},
 		createdTimestamp: keyPair.CreatedAt(),
 		active:           true,
 	}
