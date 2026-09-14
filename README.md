@@ -97,7 +97,11 @@ A `SigningKey` signs data and verifies signatures with the hashing the
 algorithm prescribes, so a signature from `Sign` verifies with the
 standard library directly. `Signer()` returns the key as a
 `crypto.Signer` for `crypto/tls`, `golang.org/x/crypto/ssh` and
-`crypto/x509`. `KeyID()` is the RFC 7638 JWK thumbprint of the public
+`crypto/x509`. It signs only what the key's algorithm prescribes:
+Ed25519 over the message itself, RSA with PKCS #1 v1.5 over SHA-256,
+SHA-384 or SHA-512 and never PSS, so an RSA key serves TLS 1.2 but not
+TLS 1.3. `PublicKey()` and a signer's `Public()` hand out a copy the
+caller owns. `KeyID()` is the RFC 7638 JWK thumbprint of the public
 key.
 
 ### Backends
@@ -109,7 +113,7 @@ outside a backend sees private key material as bytes.
 The in-memory backend keeps keys in process memory and generates a key
 on the first `GetKey` for an algorithm in a group, under the group's
 lock, so concurrent first callers share one key. Keys are gone when the
-process ends. It takes a `Clock` so key creation times can be controlled
+process ends. It needs a `Clock` so key creation times can be controlled
 in tests. It does not rotate keys yet.
 
 The OpenBao backend keeps keys in a Transit mount. OpenBao generates
@@ -119,8 +123,7 @@ signatures. The first `GetKey` for an algorithm creates the Transit key
 already holds under that name as another type or size is refused. A
 signing key and its `Signer()` ask Transit for every signature, pinned
 to the key version `GetKey` returned, and check it against that
-version's public key before handing it out. RSA signs PKCS #1 v1.5
-only, never PSS.
+version's public key before handing it out.
 `PublicKeys` lists every version Transit still verifies with. The config
 takes a `TokenSource` that is asked before every request, `StaticToken`
 answers a fixed token. Redirects are not followed, so the token never
