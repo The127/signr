@@ -10,7 +10,7 @@ type SigningKey interface {
 	// Verify checks if the provided signature is valid for the given data using the public key.
 	Verify(data, signature []byte) error
 
-	// PublicKey retrieves the public key associated with the SigningKey for verification or distribution purposes.
+	// PublicKey returns a copy of the public key that the caller owns, for verification or distribution.
 	PublicKey() (crypto.PublicKey, error)
 
 	// Signer exposes the key as a crypto.Signer for the standard library's TLS, SSH and certificate APIs. The private

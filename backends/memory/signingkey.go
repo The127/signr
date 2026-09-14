@@ -14,7 +14,7 @@ type signingKey struct {
 	kid              string
 	algorithm        string
 	hash             crypto.Hash
-	publicKey        crypto.PublicKey
+	publicKey        keyinfra.KeptPublicKey
 	signer           opaqueSigner
 	createdTimestamp time.Time
 	active           bool
@@ -37,7 +37,7 @@ func (s signingKey) Sign(data []byte) ([]byte, error) {
 
 // Verify checks a signature Sign produced over data.
 func (s signingKey) Verify(data []byte, signature []byte) error {
-	err := keyinfra.Verify(s.publicKey, s.hash, data, signature)
+	err := keyinfra.Verify(s.publicKey.Copy(), s.hash, data, signature)
 	if err != nil {
 		return fmt.Errorf("verifying signature: %w", err)
 	}
@@ -45,9 +45,9 @@ func (s signingKey) Verify(data []byte, signature []byte) error {
 	return nil
 }
 
-// PublicKey is the public half of the key.
+// PublicKey is a copy of the public half of the key that the caller owns.
 func (s signingKey) PublicKey() (crypto.PublicKey, error) {
-	return s.publicKey, nil
+	return s.publicKey.Copy(), nil
 }
 
 // Signer is the key as a crypto.Signer.

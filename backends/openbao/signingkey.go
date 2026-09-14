@@ -31,7 +31,7 @@ func (key signingKey) Sign(data []byte) ([]byte, error) {
 
 // Verify checks a signature Sign produced over data, without asking Transit.
 func (key signingKey) Verify(data []byte, signature []byte) error {
-	err := keyinfra.Verify(key.signer.public, key.hash, data, signature)
+	err := keyinfra.Verify(key.signer.public.Copy(), key.hash, data, signature)
 	if err != nil {
 		return fmt.Errorf("verifying signature: %w", err)
 	}
@@ -39,9 +39,9 @@ func (key signingKey) Verify(data []byte, signature []byte) error {
 	return nil
 }
 
-// PublicKey is the public half of the key version.
+// PublicKey is a copy of the public half of the key version, which the caller owns.
 func (key signingKey) PublicKey() (crypto.PublicKey, error) {
-	return key.signer.public, nil
+	return key.signer.public.Copy(), nil
 }
 
 // Signer is the key version as a crypto.Signer that asks Transit for every signature.

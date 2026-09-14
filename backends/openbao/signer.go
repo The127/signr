@@ -10,6 +10,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/The127/signr/internal/keyinfra"
 )
 
 var transitHashNames = map[crypto.Hash]string{
@@ -22,12 +24,12 @@ type transitSigner struct {
 	transit transit
 	name    string
 	version int
-	public  crypto.PublicKey
+	public  keyinfra.KeptPublicKey
 }
 
-// Public is the public half of the key version the signer signs with.
+// Public is a copy of the public half of the key version the signer signs with, which the caller owns.
 func (signer transitSigner) Public() crypto.PublicKey {
-	return signer.public
+	return signer.public.Copy()
 }
 
 // Sign asks Transit to sign the digest with the signer's key version, refusing options Transit would not honour.
@@ -63,7 +65,7 @@ func (signer transitSigner) Sign(_ io.Reader, digest []byte, opts crypto.SignerO
 }
 
 func (signer transitSigner) verify(digest []byte, opts crypto.SignerOpts, signature []byte) error {
-	switch public := signer.public.(type) {
+	switch public := signer.public.Copy().(type) {
 	case ed25519.PublicKey:
 		if !ed25519.Verify(public, digest, signature) {
 			return errors.New("transit answered a signature the key does not verify")
@@ -80,7 +82,7 @@ func (signer transitSigner) verify(digest []byte, opts crypto.SignerOpts, signat
 		return nil
 
 	default:
-		return fmt.Errorf("unsupported key type %T", signer.public)
+		return fmt.Errorf("unsupported key type %T", public)
 	}
 }
 
@@ -89,7 +91,7 @@ func (signer transitSigner) signRequest(digest []byte, opts crypto.SignerOpts) (
 		return signRequest{}, errors.New("signing needs options naming the hash")
 	}
 
-	switch signer.public.(type) {
+	switch public := signer.public.Copy().(type) {
 	case ed25519.PublicKey:
 		if opts.HashFunc() != 0 {
 			return signRequest{}, fmt.Errorf("ed25519 signs the message itself, not a %s digest", opts.HashFunc())
@@ -128,7 +130,7 @@ func (signer transitSigner) signRequest(digest []byte, opts crypto.SignerOpts) (
 		}, nil
 
 	default:
-		return signRequest{}, fmt.Errorf("unsupported key type %T", signer.public)
+		return signRequest{}, fmt.Errorf("unsupported key type %T", public)
 	}
 }
 

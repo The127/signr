@@ -50,6 +50,11 @@ func (group *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 		return nil, fmt.Errorf("transit key %s: %w", name, err)
 	}
 
+	kept, err := keyinfra.KeepPublicKey(publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("transit key %s: %w", name, err)
+	}
+
 	return signingKey{
 		kid:       kid,
 		algorithm: jwa,
@@ -58,7 +63,7 @@ func (group *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 			transit: group.transit,
 			name:    name,
 			version: key.LatestVersion,
-			public:  publicKey,
+			public:  kept,
 		},
 	}, nil
 }
