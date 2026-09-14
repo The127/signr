@@ -6,6 +6,9 @@ import "fmt"
 type KeyGroup interface {
 	// GetKey retrieves the signing key corresponding to the specified JSON Web Algorithm (JWA).
 	GetKey(jwa string) (SigningKey, error)
+
+	// PublicKeys retrieves the public keys of every key version in the group that can still verify, in no particular order.
+	PublicKeys() ([]PublicKey, error)
 }
 
 // errorGroup is a struct that implements the KeyGroup interface and wraps an error for operations that fail.
@@ -15,6 +18,11 @@ type errorGroup struct {
 
 // GetKey retrieves a SigningKey based on the provided JWA algorithm or returns an error if one is present in the group.
 func (g *errorGroup) GetKey(_ string) (SigningKey, error) {
+	return nil, g.err
+}
+
+// PublicKeys retrieves the public keys of the group or returns an error if one is present in the group.
+func (g *errorGroup) PublicKeys() ([]PublicKey, error) {
 	return nil, g.err
 }
 
@@ -34,4 +42,14 @@ func (g *keyGroup) GetKey(jwa string) (SigningKey, error) {
 	}
 
 	return key, nil
+}
+
+// PublicKeys retrieves the public keys of the group from the backend. Returns an error if retrieval fails.
+func (g *keyGroup) PublicKeys() ([]PublicKey, error) {
+	publicKeys, err := g.backend.PublicKeys()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list public keys: %w", err)
+	}
+
+	return publicKeys, nil
 }

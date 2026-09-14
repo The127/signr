@@ -1,5 +1,9 @@
 version: "2"
 
+run:
+  build-tags:
+    - openbao
+
 linters:
   default: standard
   enable:
@@ -23,9 +27,21 @@ linters:
       - path: _test\.go$
         linters:
           - gosec
+      # contract suite methods must be exported for testify to find them,
+      # the test name is the documentation
+      - path: ^backendtest/
+        linters:
+          - revive
+        text: exported method Suite\.Test
   settings:
     exhaustive:
       default-signifies-exhaustive: true
+    gosec:
+      excludes:
+        # G704 flags every request to a variable address. The only
+        # address a backend reaches is the one its consumer configured,
+        # never one from a caller's input.
+        - G704
     nolintlint:
       require-explanation: true
     staticcheck:

@@ -8,8 +8,8 @@ or a TPM can stand behind the same interface as the in-memory default.
 signr provides:
 
 - A `KeyManager` that organizes keys into named groups.
-- Pluggable backends that decide where keys live. The in-memory backend
-  ships with the module.
+- Pluggable backends that decide where keys live. An in-memory backend
+  and an OpenBao Transit backend ship with the module.
 - A `SigningKey` that signs and verifies, exposes its public key and
   key id, and hands out a `crypto.Signer` for the standard library's
   TLS, SSH and certificate APIs.
@@ -112,6 +112,20 @@ lock, so concurrent first callers share one key. Keys are gone when the
 process ends. It takes a `Clock` so key creation times can be controlled
 in tests. It does not rotate keys yet.
 
+The OpenBao backend keeps keys in a Transit mount. OpenBao generates
+every key and signs with it, the backend only ever sees public keys and
+signatures. The first `GetKey` for an algorithm creates the Transit key
+`<group>-<algorithm>` as `ed25519` or `rsa-4096`, and a key Transit
+already holds under that name as another type or size is refused. A
+signing key and its `Signer()` ask Transit for every signature, pinned
+to the key version `GetKey` returned, and check it against that
+version's public key before handing it out. RSA signs PKCS #1 v1.5
+only, never PSS.
+`PublicKeys` lists every version Transit still verifies with. The config
+takes a `TokenSource` that is asked before every request, `StaticToken`
+answers a fixed token. Redirects are not followed, so the token never
+travels to another host. Group names are letters, digits, `_` and `-`.
+
 ### JSON web tokens
 
 `jwtmethod.NewJwtSigningMethod(key)` returns a `jwt.SigningMethod` that
@@ -122,4 +136,6 @@ algorithm. Do not register it with `jwt.RegisterSigningMethod`.
 ## Development
 
 `just setup` installs the git hooks, `just ci` runs everything the hooks
-and the workflow run. See `CONTRIBUTING.md`.
+and the workflow run. `just test-openbao` runs the OpenBao backend's
+contract against a throwaway OpenBao container and needs podman. See
+`CONTRIBUTING.md`.
