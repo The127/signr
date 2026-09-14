@@ -55,16 +55,20 @@ func (group *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 		return nil, fmt.Errorf("transit key %s: %w", name, err)
 	}
 
+	signer := transitSigner{
+		transit: group.transit,
+		name:    name,
+		version: key.LatestVersion,
+		public:  kept,
+	}
+
 	return signingKey{
 		kid:       kid,
 		algorithm: jwa,
 		hash:      strategy.Hash(),
-		signer: transitSigner{
-			transit: group.transit,
-			name:    name,
-			version: key.LatestVersion,
-			public:  kept,
-		},
+		public:    kept,
+		// the transit client holds the OpenBao token, only the signer's Sign method may leave the backend
+		signer: keyinfra.NewOpaqueSigner(kept, signer.Sign),
 	}, nil
 }
 

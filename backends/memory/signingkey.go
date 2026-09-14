@@ -15,7 +15,7 @@ type signingKey struct {
 	algorithm        string
 	hash             crypto.Hash
 	publicKey        keyinfra.KeptPublicKey
-	signer           opaqueSigner
+	signer           keyinfra.OpaqueSigner
 	createdTimestamp time.Time
 	active           bool
 }

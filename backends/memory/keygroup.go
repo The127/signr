@@ -53,14 +53,11 @@ func (g *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 	}
 
 	key := &signingKey{
-		kid:       keyPair.Kid(),
-		algorithm: jwa,
-		hash:      keyStrategy.Hash(),
-		publicKey: publicKey,
-		signer: opaqueSigner{
-			public: publicKey,
-			sign:   signer.Sign,
-		},
+		kid:              keyPair.Kid(),
+		algorithm:        jwa,
+		hash:             keyStrategy.Hash(),
+		publicKey:        publicKey,
+		signer:           keyinfra.NewOpaqueSigner(publicKey, signer.Sign),
 		createdTimestamp: keyPair.CreatedAt(),
 		active:           true,
 	}

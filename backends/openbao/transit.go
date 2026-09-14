@@ -24,8 +24,9 @@ var errNotFound = errors.New("openbao has nothing at that path")
 type transit struct {
 	address string
 	mount   string
-	token   TokenSource
-	client  *http.Client
+	// the source's Token method only, so a printed or reflected client never shows the token
+	token  func() (string, error)
+	client *http.Client
 }
 
 type transitKey struct {
@@ -141,7 +142,7 @@ func (transit transit) post(path string, body any) (int, []byte, error) {
 }
 
 func (transit transit) do(request *http.Request) (int, []byte, error) {
-	token, err := transit.token.Token()
+	token, err := transit.token()
 	if err != nil {
 		return 0, nil, fmt.Errorf("getting the openbao token: %w", err)
 	}

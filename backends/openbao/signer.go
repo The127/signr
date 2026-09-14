@@ -27,11 +27,6 @@ type transitSigner struct {
 	public  keyinfra.KeptPublicKey
 }
 
-// Public is a copy of the public half of the key version the signer signs with, which the caller owns.
-func (signer transitSigner) Public() crypto.PublicKey {
-	return signer.public.Copy()
-}
-
 // Sign asks Transit to sign the digest with the signer's key version, refusing options Transit would not honour.
 // Transit draws its own randomness.
 func (signer transitSigner) Sign(_ io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {

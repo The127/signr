@@ -50,7 +50,7 @@ func (config Config) Create() (signr.Backend, error) {
 		transit: transit{
 			address: strings.TrimRight(config.Address, "/"),
 			mount:   strings.Trim(config.Mount, "/"),
-			token:   config.Token,
+			token:   config.Token.Token,
 			client: &http.Client{
 				Timeout: requestTimeout,
 				// following a redirect would carry the token to wherever it points
