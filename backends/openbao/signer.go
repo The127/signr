@@ -81,39 +81,19 @@ func (signer transitSigner) verify(digest []byte, opts crypto.SignerOpts, signat
 	}
 }
 
+// keyinfra.OpaqueSigner checks opts before this is reached, it is the only way in
 func (signer transitSigner) signRequest(digest []byte, opts crypto.SignerOpts) (signRequest, error) {
-	if opts == nil {
-		return signRequest{}, errors.New("signing needs options naming the hash")
-	}
-
 	switch public := signer.public.Copy().(type) {
 	case ed25519.PublicKey:
-		if opts.HashFunc() != 0 {
-			return signRequest{}, fmt.Errorf("ed25519 signs the message itself, not a %s digest", opts.HashFunc())
-		}
-
-		if contextOf(opts) != "" {
-			return signRequest{}, errors.New("transit signs plain ed25519, without a context")
-		}
-
 		return signRequest{
 			Input:      base64.StdEncoding.EncodeToString(digest),
 			KeyVersion: signer.version,
 		}, nil
 
 	case *rsa.PublicKey:
-		_, isPSS := opts.(*rsa.PSSOptions)
-		if isPSS {
-			return signRequest{}, errors.New("transit rsa keys sign pkcs1v15 here, not pss")
-		}
-
 		hashName, found := transitHashNames[opts.HashFunc()]
 		if !found {
 			return signRequest{}, fmt.Errorf("transit rsa keys sign no %s digest here", opts.HashFunc())
-		}
-
-		if len(digest) != opts.HashFunc().Size() {
-			return signRequest{}, fmt.Errorf("a %s digest is %d bytes, not %d", opts.HashFunc(), opts.HashFunc().Size(), len(digest))
 		}
 
 		return signRequest{
@@ -127,13 +107,4 @@ func (signer transitSigner) signRequest(digest []byte, opts crypto.SignerOpts) (
 	default:
 		return signRequest{}, fmt.Errorf("unsupported key type %T", public)
 	}
-}
-
-func contextOf(opts crypto.SignerOpts) string {
-	options, isOptions := opts.(*ed25519.Options)
-	if !isOptions {
-		return ""
-	}
-
-	return options.Context
 }

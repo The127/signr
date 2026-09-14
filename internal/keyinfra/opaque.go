@@ -25,7 +25,13 @@ func (signer OpaqueSigner) Public() crypto.PublicKey {
 	return signer.public.Copy()
 }
 
-// Sign signs the digest with the key, passing opts through unchanged.
+// Sign signs the digest with the key, refusing options SignerHash refuses.
 func (signer OpaqueSigner) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
-	return signer.sign(rand, digest, opts)
+	hash, err := SignerHash(signer.public.Copy(), digest, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// the key sees only the checked hash, the caller's opts could answer differently when read again
+	return signer.sign(rand, digest, hash)
 }
