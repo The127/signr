@@ -17,6 +17,20 @@ func (s *Suite) TestAnUnknownAlgorithmIsRefusedInsteadOfPanicking() {
 	s.ErrorContains(err, "ES256")
 }
 
+func (s *Suite) TestAGroupAnswersTheSameKeyTwice() {
+	// arrange
+	group := s.newManager().GetGroup("signing")
+	first, err := group.GetKey("EdDSA")
+	s.Require().NoError(err)
+
+	// act
+	second, err := group.GetKey("EdDSA")
+
+	// assert
+	s.Require().NoError(err)
+	s.Equal(first.KeyID(), second.KeyID())
+}
+
 func (s *Suite) TestAnEdDSAKeySignsWhatTheStandardLibraryVerifies() {
 	// arrange
 	key := s.newKey("EdDSA")

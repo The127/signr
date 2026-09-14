@@ -46,6 +46,12 @@ jobs:
           go build ./...
           go test -coverprofile=coverage.out -covermode=atomic ./...
 
+      - name: openbao backend contract
+        run: |
+          docker run -d --name signr-openbao-test -p 127.0.0.1:18200:8200 docker.io/openbao/openbao:2.6.2 server -dev -dev-root-token-id=root -dev-listen-address=0.0.0.0:8200
+          curl -sf --retry 30 --retry-all-errors --retry-delay 1 -o /dev/null http://127.0.0.1:18200/v1/sys/health
+          SIGNR_OPENBAO_ADDR=http://127.0.0.1:18200 SIGNR_OPENBAO_TOKEN=root go test -tags openbao -count=1 ./backends/openbao/...
+
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v7
         with:

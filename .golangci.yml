@@ -1,5 +1,9 @@
 version: "2"
 
+run:
+  build-tags:
+    - openbao
+
 linters:
   default: standard
   enable:
@@ -32,6 +36,12 @@ linters:
   settings:
     exhaustive:
       default-signifies-exhaustive: true
+    gosec:
+      excludes:
+        # G704 flags every request to a variable address. The only
+        # address a backend reaches is the one its consumer configured,
+        # never one from a caller's input.
+        - G704
     nolintlint:
       require-explanation: true
     staticcheck:
