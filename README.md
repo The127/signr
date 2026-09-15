@@ -145,7 +145,12 @@ version's public key before handing it out.
 takes a `TokenSource` that is asked before every request, `StaticToken`
 answers a fixed token. Redirects are not followed, so the token never
 travels to another host. Group names are letters, digits, `_` and `-`.
-It does not seal yet.
+The first `GetSealingKey` creates the Transit key `<group>-AES-256-GCM`
+as `aes256-gcm96`, and a key Transit holds under that name as another
+type is refused. Transit seals and opens, so every `Seal` and `Open` is
+one request and the plaintext travels to OpenBao. Sealed data is
+Transit's `vault:v<version>:<base64>` text, and `Open` refuses base64
+that is not in its one canonical form.
 
 The directory backend keeps each key as a PEM file at
 `<path>/<group>/<algorithm>.pem`, so keys survive a restart. The path
