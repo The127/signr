@@ -23,12 +23,42 @@ func checkPrivateDirectory(name string, info fs.FileInfo) error {
 	return nil
 }
 
+func openKeyDirectory(path string) (*os.Root, error) {
+	err := checkParents(path)
+	if err != nil {
+		return nil, err
+	}
+
+	root, err := os.OpenRoot(path)
+	if err != nil {
+		return nil, fmt.Errorf("opening key directory: %w", err)
+	}
+
+	info, err := root.Stat(".")
+	if err != nil {
+		_ = root.Close()
+		return nil, fmt.Errorf("inspecting key directory: %w", err)
+	}
+
+	err = checkPrivateDirectory(path, info)
+	if err != nil {
+		_ = root.Close()
+		return nil, err
+	}
+
+	return root, nil
+}
+
 func openGroupDirectory(root *os.Root, name string) (*os.Root, error) {
 	err := root.MkdirAll(name, 0o700)
 	if err != nil {
 		return nil, fmt.Errorf("creating %s: %w", name, err)
 	}
 
+	return openExistingGroupDirectory(root, name)
+}
+
+func openExistingGroupDirectory(root *os.Root, name string) (*os.Root, error) {
 	linked, err := root.Lstat(name)
 	if err != nil {
 		return nil, fmt.Errorf("inspecting %s: %w", name, err)

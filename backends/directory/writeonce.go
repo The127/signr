@@ -1,7 +1,6 @@
 package directory
 
 import (
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -12,9 +11,12 @@ import (
 var errAlreadyStored = errors.New("a key is already stored under that name")
 
 func writeOnce(root *os.Root, name string, data []byte) error {
-	temporary := filepath.Join(filepath.Dir(name), "."+filepath.Base(name)+"."+rand.Text())
+	temporary, err := temporaryFileName(name)
+	if err != nil {
+		return err
+	}
 
-	err := writeNewFile(root, temporary, data)
+	err = writeNewFile(root, temporary, data)
 	if err != nil {
 		return err
 	}

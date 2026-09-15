@@ -2,36 +2,73 @@ package directory
 
 import (
 	"crypto"
-	"errors"
+	"fmt"
+
+	"github.com/The127/signr"
+	"github.com/The127/signr/internal/keyinfra"
 )
 
 type signingKey struct {
-	kid string
+	kid       string
+	algorithm string
+	hash      crypto.Hash
+	publicKey keyinfra.KeptPublicKey
+	signer    keyinfra.OpaqueSigner
 }
 
-// Algorithm is not known yet.
+func newSigningKey(privateKey any, kid string, jwa string, hash crypto.Hash) (signr.SigningKey, error) {
+	signer, ok := privateKey.(crypto.Signer)
+	if !ok {
+		return nil, fmt.Errorf("a key of type %T cannot sign", privateKey)
+	}
+
+	publicKey, err := keyinfra.KeepPublicKey(signer.Public())
+	if err != nil {
+		return nil, err
+	}
+
+	return signingKey{
+		kid:       kid,
+		algorithm: jwa,
+		hash:      hash,
+		publicKey: publicKey,
+		signer:    keyinfra.NewOpaqueSigner(publicKey, signer.Sign),
+	}, nil
+}
+
+// Algorithm is the JWA name the key was created for.
 func (key signingKey) Algorithm() string {
-	return ""
+	return key.algorithm
 }
 
-// Sign refuses until the key can sign.
-func (key signingKey) Sign(_ []byte) ([]byte, error) {
-	return nil, errors.New("directory backend cannot sign yet")
+// Sign signs data the way the algorithm prescribes.
+func (key signingKey) Sign(data []byte) ([]byte, error) {
+	signed, err := keyinfra.Sign(key.signer, key.hash, data)
+	if err != nil {
+		return nil, fmt.Errorf("signing data: %w", err)
+	}
+
+	return signed, nil
 }
 
-// Verify refuses every signature until the key can verify.
-func (key signingKey) Verify(_ []byte, _ []byte) error {
-	return errors.New("directory backend cannot verify yet")
+// Verify checks a signature Sign produced over data.
+func (key signingKey) Verify(data []byte, signature []byte) error {
+	err := keyinfra.Verify(key.publicKey.Copy(), key.hash, data, signature)
+	if err != nil {
+		return fmt.Errorf("verifying signature: %w", err)
+	}
+
+	return nil
 }
 
-// PublicKey is not known yet.
+// PublicKey is a copy of the public half of the key that the caller owns.
 func (key signingKey) PublicKey() (crypto.PublicKey, error) {
-	return nil, errors.New("directory backend cannot answer a public key yet")
+	return key.publicKey.Copy(), nil
 }
 
-// Signer refuses until the key can sign.
+// Signer is the key as a crypto.Signer whose holder cannot reach the private key.
 func (key signingKey) Signer() (crypto.Signer, error) {
-	return nil, errors.New("directory backend cannot sign yet")
+	return key.signer, nil
 }
 
 // KeyID is the RFC 7638 thumbprint of the public key.

@@ -23,28 +23,13 @@ func (group *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 		return nil, err
 	}
 
-	err = checkParents(group.directory)
+	root, err := openKeyDirectory(group.directory)
 	if err != nil {
 		return nil, err
-	}
-
-	root, err := os.OpenRoot(group.directory)
-	if err != nil {
-		return nil, fmt.Errorf("opening key directory: %w", err)
 	}
 	defer func() {
 		_ = root.Close()
 	}()
-
-	info, err := root.Stat(".")
-	if err != nil {
-		return nil, fmt.Errorf("inspecting key directory: %w", err)
-	}
-
-	err = checkPrivateDirectory(group.directory, info)
-	if err != nil {
-		return nil, err
-	}
 
 	keys, err := openGroupDirectory(root, group.name)
 	if err != nil {
@@ -54,7 +39,7 @@ func (group *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 		_ = keys.Close()
 	}()
 
-	key, err := readOrGenerate(keys, keyStrategy, jwa+".pem")
+	key, err := readOrGenerate(keys, keyStrategy, jwa)
 	if err != nil {
 		return nil, fmt.Errorf("group %s: %w", group.name, err)
 	}
@@ -74,10 +59,10 @@ func (group *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 	return key, nil
 }
 
-func readOrGenerate(keys *os.Root, keyStrategy keyinfra.KeyAlgorithmStrategy, file string) (signr.SigningKey, error) {
-	key, err := readKey(keys, keyStrategy, file)
+func readOrGenerate(keys *os.Root, keyStrategy keyinfra.KeyAlgorithmStrategy, jwa string) (signr.SigningKey, error) {
+	key, err := readKey(keys, keyStrategy, jwa)
 	if errors.Is(err, fs.ErrNotExist) {
-		return generate(keys, keyStrategy, file)
+		return generate(keys, keyStrategy, jwa)
 	}
 
 	if err != nil {
@@ -87,7 +72,7 @@ func readOrGenerate(keys *os.Root, keyStrategy keyinfra.KeyAlgorithmStrategy, fi
 	return key, nil
 }
 
-func generate(keys *os.Root, keyStrategy keyinfra.KeyAlgorithmStrategy, file string) (signr.SigningKey, error) {
+func generate(keys *os.Root, keyStrategy keyinfra.KeyAlgorithmStrategy, jwa string) (signr.SigningKey, error) {
 	keyPair, err := keyStrategy.Generate(time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("generating key pair: %w", err)
@@ -98,27 +83,27 @@ func generate(keys *os.Root, keyStrategy keyinfra.KeyAlgorithmStrategy, file str
 		return nil, fmt.Errorf("exporting key: %w", err)
 	}
 
-	err = writeOnce(keys, file, []byte(serialized))
+	err = writeOnce(keys, keyFile(jwa), []byte(serialized))
 	if errors.Is(err, errAlreadyStored) {
-		return readKey(keys, keyStrategy, file)
+		return readKey(keys, keyStrategy, jwa)
 	}
 
 	if err != nil {
 		return nil, fmt.Errorf("storing key: %w", err)
 	}
 
-	return signingKey{
-		kid: keyPair.Kid(),
-	}, nil
+	return newSigningKey(keyPair.PrivateKey(), keyPair.Kid(), jwa, keyStrategy.Hash())
 }
 
-func readKey(keys *os.Root, keyStrategy keyinfra.KeyAlgorithmStrategy, file string) (signr.SigningKey, error) {
+func readKey(keys *os.Root, keyStrategy keyinfra.KeyAlgorithmStrategy, jwa string) (signr.SigningKey, error) {
+	file := keyFile(jwa)
+
 	serialized, err := readPrivateFile(keys, file)
 	if err != nil {
 		return nil, err
 	}
 
-	_, publicKey, err := keyStrategy.Import(string(serialized))
+	privateKey, publicKey, err := keyStrategy.Import(string(serialized))
 	if err != nil {
 		return nil, fmt.Errorf("importing %s: %w", file, err)
 	}
@@ -128,12 +113,9 @@ func readKey(keys *os.Root, keyStrategy keyinfra.KeyAlgorithmStrategy, file stri
 		return nil, fmt.Errorf("computing the key id of %s: %w", file, err)
 	}
 
-	return signingKey{
-		kid: kid,
-	}, nil
+	return newSigningKey(privateKey, kid, jwa, keyStrategy.Hash())
 }
 
-// PublicKeys lists nothing yet.
-func (group *keyGroup) PublicKeys() ([]signr.PublicKey, error) {
-	return nil, errors.New("directory backend cannot list public keys yet")
+func keyFile(jwa string) string {
+	return jwa + ".pem"
 }
