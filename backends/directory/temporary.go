@@ -28,13 +28,12 @@ func isTemporaryName(name string) bool {
 		return false
 	}
 
-	jwa, suffix, found := strings.Cut(withoutDot, ".pem.")
+	algorithm, suffix, found := strings.Cut(withoutDot, ".pem.")
 	if !found {
 		return false
 	}
 
-	_, err := keyinfra.GetKeyStrategy(jwa)
-	if err != nil {
+	if !isKeyAlgorithm(algorithm) {
 		return false
 	}
 
@@ -43,4 +42,14 @@ func isTemporaryName(name string) bool {
 	}
 
 	return strings.Trim(suffix, "0123456789abcdef") == ""
+}
+
+func isKeyAlgorithm(algorithm string) bool {
+	if algorithm == sealingAlgorithm {
+		return true
+	}
+
+	_, err := keyinfra.GetKeyStrategy(algorithm)
+
+	return err == nil
 }

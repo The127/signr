@@ -42,6 +42,32 @@ func firstKeyIDsAtOnce(t *testing.T, path string, callers int) []string {
 	return kids
 }
 
+func firstSealingKeysAtOnce(t *testing.T, path string, callers int) []signr.SealingKey {
+	t.Helper()
+
+	start := make(chan struct{})
+	keys := make([]signr.SealingKey, callers)
+	errs := make([]error, callers)
+	waitGroup := sync.WaitGroup{}
+
+	for index := range callers {
+		group := newGroup(t, path, "sealing")
+		waitGroup.Go(func() {
+			<-start
+			keys[index], errs[index] = group.GetSealingKey("AES-256-GCM")
+		})
+	}
+
+	close(start)
+	waitGroup.Wait()
+
+	for _, err := range errs {
+		require.NoError(t, err)
+	}
+
+	return keys
+}
+
 func listingErrorsWhileGenerating(t *testing.T, rounds int) []error {
 	t.Helper()
 
@@ -96,6 +122,25 @@ func TestConcurrentFirstCallsAgreeOnTheKeyThatSurvivesARestart(t *testing.T) {
 	stored, err := newGroup(t, path, "signing").GetKey("EdDSA")
 	require.NoError(t, err)
 	assert.Equal(t, slices.Repeat([]string{stored.KeyID()}, 16), kids)
+}
+
+func TestConcurrentFirstSealingCallsAgreeOnTheKeyThatSurvivesARestart(t *testing.T) {
+	// arrange
+	path := t.TempDir()
+
+	// act
+	keys := firstSealingKeysAtOnce(t, path, 16)
+
+	// assert
+	stored, err := newGroup(t, path, "sealing").GetSealingKey("AES-256-GCM")
+	require.NoError(t, err)
+	sealed, err := stored.Seal([]byte("hello"), nil)
+	require.NoError(t, err)
+	for _, key := range keys {
+		opened, err := key.Open(sealed, nil)
+		require.NoError(t, err)
+		assert.Equal(t, []byte("hello"), opened)
+	}
 }
 
 func TestListingWhileKeysAreGeneratedNeverFails(t *testing.T) {

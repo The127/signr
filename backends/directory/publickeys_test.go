@@ -74,20 +74,27 @@ func TestAForeignDotFileInAGroupFailsTheListingClosed(t *testing.T) {
 }
 
 func TestALeftoverTemporaryKeyFileIsNotListed(t *testing.T) {
-	// arrange
-	path := t.TempDir()
-	group := newGroup(t, path, "signing")
-	key, err := group.GetKey("EdDSA")
-	require.NoError(t, err)
-	plantFile(t, filepath.Join(path, "signing", ".EdDSA.pem.0123456789abcdef0123456789abcdef"))
+	for _, name := range []string{
+		".EdDSA.pem.0123456789abcdef0123456789abcdef",
+		".AES-256-GCM.pem.0123456789abcdef0123456789abcdef",
+	} {
+		t.Run(name, func(t *testing.T) {
+			// arrange
+			path := t.TempDir()
+			group := newGroup(t, path, "signing")
+			key, err := group.GetKey("EdDSA")
+			require.NoError(t, err)
+			plantFile(t, filepath.Join(path, "signing", name))
 
-	// act
-	publicKeys, err := group.PublicKeys()
+			// act
+			publicKeys, err := group.PublicKeys()
 
-	// assert
-	require.NoError(t, err)
-	require.Len(t, publicKeys, 1)
-	assert.Equal(t, key.KeyID(), publicKeys[0].KeyID)
+			// assert
+			require.NoError(t, err)
+			require.Len(t, publicKeys, 1)
+			assert.Equal(t, key.KeyID(), publicKeys[0].KeyID)
+		})
+	}
 }
 
 func TestListingAnEmptyGroupCreatesNoDirectory(t *testing.T) {

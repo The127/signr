@@ -172,6 +172,25 @@ func (s *SealingSuite) TestOpeningAnotherGroupsCiphertextFailsClosed() {
 	s.Error(err)
 }
 
+func (s *SealingSuite) TestSealingLeavesTheGroupsPublicKeysAlone() {
+	// arrange
+	manager, err := signr.New(signr.Config{Backend: s.Backend})
+	s.Require().NoError(err)
+	group := manager.GetGroup("sealing")
+	key, err := group.GetKey("EdDSA")
+	s.Require().NoError(err)
+	_, err = group.GetSealingKey("AES-256-GCM")
+	s.Require().NoError(err)
+
+	// act
+	publicKeys, err := group.PublicKeys()
+
+	// assert
+	s.Require().NoError(err)
+	s.Require().Len(publicKeys, 1)
+	s.Equal(key.KeyID(), publicKeys[0].KeyID)
+}
+
 func (s *SealingSuite) TestAnUnknownAlgorithmIsRefusedInsteadOfPanicking() {
 	// arrange
 	manager, err := signr.New(signr.Config{Backend: s.Backend})

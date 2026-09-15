@@ -50,6 +50,15 @@ func (group *keyGroup) PublicKeys() ([]signr.PublicKey, error) {
 			continue
 		}
 
+		if name == keyFile(sealingAlgorithm) {
+			_, err := readSealer(keys, name)
+			if err != nil {
+				return nil, fmt.Errorf("group %s: %w", group.name, err)
+			}
+
+			continue
+		}
+
 		publicKey, err := readPublicKey(keys, name)
 		if err != nil {
 			return nil, fmt.Errorf("group %s: %w", group.name, err)
