@@ -19,3 +19,7 @@ func (fixedClock) Now() time.Time {
 func TestContract(t *testing.T) {
 	suite.Run(t, &backendtest.Suite{Backend: memory.Config{Clock: fixedClock{}}})
 }
+
+func TestSealingContract(t *testing.T) {
+	suite.Run(t, &backendtest.SealingSuite{Backend: memory.Config{Clock: fixedClock{}}})
+}

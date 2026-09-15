@@ -10,9 +10,10 @@ import (
 )
 
 type keyGroup struct {
-	mu    sync.Mutex
-	keys  map[string]keyVersions
-	clock Clock
+	mu      sync.Mutex
+	keys    map[string]keyVersions
+	clock   Clock
+	sealing *sealingKey
 }
 
 // GetKey returns the active key for the algorithm, generating one on the first call.
