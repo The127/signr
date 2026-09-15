@@ -10,8 +10,9 @@ type KeyGroup interface {
 	// PublicKeys retrieves the public keys of every key version in the group that can still verify, in no particular order.
 	PublicKeys() ([]PublicKey, error)
 
-	// GetSealingKey returns the group's key for sealing data, or an error when the backend cannot seal.
-	GetSealingKey() (SealingKey, error)
+	// GetSealingKey returns the group's key for sealing data with the named algorithm, or an error when the backend
+	// cannot seal with it.
+	GetSealingKey(algorithm string) (SealingKey, error)
 }
 
 // errorGroup is a struct that implements the KeyGroup interface and wraps an error for operations that fail.
@@ -30,7 +31,7 @@ func (g *errorGroup) PublicKeys() ([]PublicKey, error) {
 }
 
 // GetSealingKey returns the error the group was created with.
-func (g *errorGroup) GetSealingKey() (SealingKey, error) {
+func (g *errorGroup) GetSealingKey(_ string) (SealingKey, error) {
 	return nil, g.err
 }
 
@@ -63,13 +64,13 @@ func (g *keyGroup) PublicKeys() ([]PublicKey, error) {
 }
 
 // GetSealingKey returns the backend group's sealing key, refusing a backend group that cannot seal.
-func (g *keyGroup) GetSealingKey() (SealingKey, error) {
+func (g *keyGroup) GetSealingKey(algorithm string) (SealingKey, error) {
 	sealing, ok := g.backend.(SealingBackendGroup)
 	if !ok {
 		return nil, fmt.Errorf("backend group %T cannot seal", g.backend)
 	}
 
-	key, err := sealing.GetSealingKey()
+	key, err := sealing.GetSealingKey(algorithm)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sealing key: %w", err)
 	}

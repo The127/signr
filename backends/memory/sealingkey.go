@@ -10,7 +10,11 @@ import (
 )
 
 // GetSealingKey returns the group's key for sealing data, generating it on the first call.
-func (g *keyGroup) GetSealingKey() (signr.SealingKey, error) {
+func (g *keyGroup) GetSealingKey(algorithm string) (signr.SealingKey, error) {
+	if algorithm != "AES-256-GCM" {
+		return nil, fmt.Errorf("unsupported algorithm %q", algorithm)
+	}
+
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
