@@ -24,44 +24,75 @@ type contract struct {
 }
 
 func (s *contract) SetupTest() {
-	s.Backend = s.freshMount()
+	s.Backend = freshMount(s.Require(), s.address, s.token)
 }
 
 func (s *contract) SetupSubTest() {
-	s.Backend = s.freshMount()
+	s.Backend = freshMount(s.Require(), s.address, s.token)
 }
 
-func (s *contract) freshMount() openbao.Config {
+type sealingContract struct {
+	backendtest.SealingSuite
+	address string
+	token   string
+}
+
+func (s *sealingContract) SetupTest() {
+	s.Backend = freshMount(s.Require(), s.address, s.token)
+}
+
+func (s *sealingContract) SetupSubTest() {
+	s.Backend = freshMount(s.Require(), s.address, s.token)
+}
+
+func freshMount(assertions *require.Assertions, address string, token string) openbao.Config {
 	suffix := make([]byte, 8)
 	_, err := rand.Read(suffix)
-	s.Require().NoError(err)
+	assertions.NoError(err)
 
 	mount := "transit-" + hex.EncodeToString(suffix)
 
-	request, err := http.NewRequest(http.MethodPost, s.address+"/v1/sys/mounts/"+mount, bytes.NewBufferString(`{"type":"transit"}`))
-	s.Require().NoError(err)
-	request.Header.Set("X-Vault-Token", s.token)
+	request, err := http.NewRequest(http.MethodPost, address+"/v1/sys/mounts/"+mount, bytes.NewBufferString(`{"type":"transit"}`))
+	assertions.NoError(err)
+	request.Header.Set("X-Vault-Token", token)
 
 	response, err := http.DefaultClient.Do(request)
-	s.Require().NoError(err)
-	s.Require().NoError(response.Body.Close())
-	s.Require().Equal(http.StatusNoContent, response.StatusCode)
+	assertions.NoError(err)
+	assertions.NoError(response.Body.Close())
+	assertions.Equal(http.StatusNoContent, response.StatusCode)
 
 	return openbao.Config{
-		Address: s.address,
+		Address: address,
 		Mount:   mount,
-		Token:   openbao.StaticToken(s.token),
+		Token:   openbao.StaticToken(token),
 	}
 }
 
-func TestContract(t *testing.T) {
+func openBaoUnderTest(t *testing.T) (string, string) {
+	t.Helper()
+
 	address := os.Getenv("SIGNR_OPENBAO_ADDR")
 	require.NotEmpty(t, address, "SIGNR_OPENBAO_ADDR names the OpenBao the contract runs against")
 
 	token := os.Getenv("SIGNR_OPENBAO_TOKEN")
 	require.NotEmpty(t, token, "SIGNR_OPENBAO_TOKEN may mount Transit engines on that OpenBao")
 
+	return address, token
+}
+
+func TestContract(t *testing.T) {
+	address, token := openBaoUnderTest(t)
+
 	suite.Run(t, &contract{
+		address: address,
+		token:   token,
+	})
+}
+
+func TestSealingContract(t *testing.T) {
+	address, token := openBaoUnderTest(t)
+
+	suite.Run(t, &sealingContract{
 		address: address,
 		token:   token,
 	})

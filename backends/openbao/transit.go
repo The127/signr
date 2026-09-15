@@ -62,6 +62,34 @@ type signResponse struct {
 	} `json:"data"`
 }
 
+type sealingKeyResponse struct {
+	Data struct {
+		Type string `json:"type"`
+	} `json:"data"`
+}
+
+type encryptRequest struct {
+	Plaintext      string `json:"plaintext"`
+	AssociatedData string `json:"associated_data,omitempty"`
+}
+
+type encryptResponse struct {
+	Data struct {
+		Ciphertext string `json:"ciphertext"`
+	} `json:"data"`
+}
+
+type decryptRequest struct {
+	Ciphertext     string `json:"ciphertext"`
+	AssociatedData string `json:"associated_data,omitempty"`
+}
+
+type decryptResponse struct {
+	Data struct {
+		Plaintext string `json:"plaintext"`
+	} `json:"data"`
+}
+
 func (transit transit) createKey(name string, keyType string) (transitKey, error) {
 	status, raw, err := transit.post("keys/"+name, createKeyRequest{
 		Type: keyType,
@@ -111,6 +139,57 @@ func (transit transit) sign(name string, request signRequest) (signResponse, err
 	err = decode(status, raw, &response)
 	if err != nil {
 		return signResponse{}, fmt.Errorf("signing with transit key %s: %w", name, err)
+	}
+
+	return response, nil
+}
+
+// a sealing key lists creation times under keys, where the signing keys' transitKey expects public keys
+func (transit transit) createSealingKey(name string, keyType string) (string, error) {
+	status, raw, err := transit.post("keys/"+name, createKeyRequest{
+		Type: keyType,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	var response sealingKeyResponse
+
+	err = decode(status, raw, &response)
+	if err != nil {
+		return "", fmt.Errorf("creating transit key %s: %w", name, err)
+	}
+
+	return response.Data.Type, nil
+}
+
+func (transit transit) encrypt(name string, request encryptRequest) (encryptResponse, error) {
+	status, raw, err := transit.post("encrypt/"+name, request)
+	if err != nil {
+		return encryptResponse{}, err
+	}
+
+	var response encryptResponse
+
+	err = decode(status, raw, &response)
+	if err != nil {
+		return encryptResponse{}, fmt.Errorf("sealing with transit key %s: %w", name, err)
+	}
+
+	return response, nil
+}
+
+func (transit transit) decrypt(name string, request decryptRequest) (decryptResponse, error) {
+	status, raw, err := transit.post("decrypt/"+name, request)
+	if err != nil {
+		return decryptResponse{}, err
+	}
+
+	var response decryptResponse
+
+	err = decode(status, raw, &response)
+	if err != nil {
+		return decryptResponse{}, fmt.Errorf("opening with transit key %s: %w", name, err)
 	}
 
 	return response, nil

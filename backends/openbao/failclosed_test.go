@@ -26,6 +26,7 @@ type transitAnswers struct {
 	keyStatus int
 	key       string
 	signature string
+	plaintext string
 }
 
 func fakeTransit(t *testing.T, answers transitAnswers) openbao.Config {
@@ -34,6 +35,13 @@ func fakeTransit(t *testing.T, answers transitAnswers) openbao.Config {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/sign/") {
 			_, err := w.Write([]byte(`{"data":{"signature":"` + answers.signature + `"}}`))
+			assert.NoError(t, err)
+
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/decrypt/") {
+			_, err := w.Write([]byte(`{"data":{"plaintext":"` + answers.plaintext + `"}}`))
 			assert.NoError(t, err)
 
 			return
@@ -64,6 +72,24 @@ func transitKey(t *testing.T, keyType string, publicKey string) string {
 				"1": map[string]string{
 					"public_key": publicKey,
 				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	return string(encoded)
+}
+
+func sealingTransitKey(t *testing.T, keyType string) string {
+	t.Helper()
+
+	encoded, err := json.Marshal(map[string]any{
+		"data": map[string]any{
+			"type":                   keyType,
+			"latest_version":         1,
+			"min_decryption_version": 1,
+			"keys": map[string]any{
+				"1": 1757937600,
 			},
 		},
 	})
@@ -242,6 +268,63 @@ func TestAKeyTransitHoldsAsAnotherTypeFailsClosed(t *testing.T) {
 
 	// assert
 	assert.ErrorContains(t, err, "rsa-2048")
+}
+
+func TestASealingKeyTransitHoldsAsAnotherTypeFailsClosed(t *testing.T) {
+	// arrange
+	config := fakeTransit(t, transitAnswers{
+		keyStatus: http.StatusOK,
+		key:       sealingTransitKey(t, "aes128-gcm96"),
+	})
+
+	manager, err := signr.New(signr.Config{
+		Backend: config,
+	})
+	require.NoError(t, err)
+
+	// act
+	_, err = manager.GetGroup("sealing").GetSealingKey("AES-256-GCM")
+
+	// assert
+	assert.ErrorContains(t, err, "aes128-gcm96")
+}
+
+func TestASealedValueSpelledAnotherWayFailsClosedInsteadOfOpening(t *testing.T) {
+	canonical := "vault:v1:QQ=="
+
+	for _, respelled := range []string{
+		"vault:v1:QR==",
+		"vault:v1:QQ==\n",
+		"vault:v1:Q\nQ==",
+		"vault:v1:\r\nQQ==",
+		"vault:v0:QQ==",
+		"vault:v01:QQ==",
+		"vault:v+1:QQ==",
+	} {
+		t.Run(respelled, func(t *testing.T) {
+			// arrange
+			config := fakeTransit(t, transitAnswers{
+				keyStatus: http.StatusOK,
+				key:       sealingTransitKey(t, "aes256-gcm96"),
+				plaintext: base64.StdEncoding.EncodeToString([]byte("hello")),
+			})
+
+			manager, err := signr.New(signr.Config{
+				Backend: config,
+			})
+			require.NoError(t, err)
+			key, err := manager.GetGroup("sealing").GetSealingKey("AES-256-GCM")
+			require.NoError(t, err)
+			_, err = key.Open([]byte(canonical), nil)
+			require.NoError(t, err)
+
+			// act
+			_, err = key.Open([]byte(respelled), nil)
+
+			// assert
+			assert.Error(t, err)
+		})
+	}
 }
 
 func TestAMissingMountIsAnErrorInsteadOfAnEmptyGroup(t *testing.T) {
