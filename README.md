@@ -91,8 +91,8 @@ key is addressed by its JWA algorithm name and the sealing key by
 
 Signing: `EdDSA` (Ed25519), `RS256`, `RS384` and `RS512` (RSA-4096 with
 PKCS #1 v1.5 over the named SHA-2 hash). Sealing: `AES-256-GCM`. The
-sealing name is signr's own and not a JWA name, because sealed data is
-signr's format and not JWE. An unknown name is an error, never a panic.
+sealing name is signr's own and not a JWA name, because the sealed
+format depends on the backend. An unknown name is an error, never a panic.
 
 ### Signing keys
 
@@ -114,12 +114,18 @@ key.
 `Open(ciphertext, associatedData)` returns the plaintext only for bytes
 this group's key sealed, unaltered, with the same associated data.
 Anything else is an error. The associated data is a value the caller
-chooses per seal and passes again to open, like a login password. It is
-not stored in the sealed bytes, and `nil` means none. The backend's key
-protects the data, so the associated data adds nothing if that key
-leaks. Sealed bytes are binary, encode them to store them as text. The
-sealed format may still change before the first release that ships
-sealing.
+chooses per seal and passes again to open, like a login password, and
+`nil` means none. It is not a secret. The backend's key protects the
+data, so the associated data adds nothing if that key leaks.
+
+The memory and directory backends seal as a compact JWE (RFC 7516) with
+`dir` and `A256GCM`, so any JOSE library opens a sealed value with the
+key. Associated data that is not empty travels base64url-encoded in the
+protected header `aad`, readable by anyone who sees the sealed value.
+`Open` accepts only the exact shape `Seal` writes, before any key work:
+five parts in canonical base64url, no encrypted key, a 16-byte tag, and
+a header of `alg`, `enc` and `aad` spelled the one way `Seal` spells
+it.
 
 ### Backends
 
