@@ -83,16 +83,14 @@ The same program is in `example/`.
 
 `signr.New` takes a backend configuration and returns the `KeyManager`.
 `GetGroup(name)` names a bucket of keys that belong together, for
-example every key that signs access tokens. Within a group a signing
-key is addressed by its JWA algorithm name and the sealing key by
-`AES-256-GCM`.
+example every key that signs access tokens. Within a group a key is
+addressed by its JWA algorithm name.
 
 ### Algorithms
 
 Signing: `EdDSA` (Ed25519), `RS256`, `RS384` and `RS512` (RSA-4096 with
-PKCS #1 v1.5 over the named SHA-2 hash). Sealing: `AES-256-GCM`. The
-sealing name is signr's own and not a JWA name, because the sealed
-format depends on the backend. An unknown name is an error, never a panic.
+PKCS #1 v1.5 over the named SHA-2 hash). Sealing: `A256GCM`
+(AES-256-GCM). An unknown name is an error, never a panic.
 
 ### Signing keys
 
@@ -109,7 +107,7 @@ key.
 
 ### Sealing keys
 
-`GetSealingKey("AES-256-GCM")` returns the group's `SealingKey`.
+`GetSealingKey("A256GCM")` returns the group's `SealingKey`.
 `Seal(plaintext, associatedData)` encrypts, and
 `Open(ciphertext, associatedData)` returns the plaintext only for bytes
 this group's key sealed, unaltered, with the same associated data.
@@ -151,7 +149,7 @@ version's public key before handing it out.
 takes a `TokenSource` that is asked before every request, `StaticToken`
 answers a fixed token. Redirects are not followed, so the token never
 travels to another host. Group names are letters, digits, `_` and `-`.
-The first `GetSealingKey` creates the Transit key `<group>-AES-256-GCM`
+The first `GetSealingKey` creates the Transit key `<group>-A256GCM`
 as `aes256-gcm96`, and a key Transit holds under that name as another
 type is refused. Transit seals and opens, so every `Seal` and `Open` is
 one request and the plaintext travels to OpenBao. Sealed data is
@@ -170,9 +168,9 @@ directories above the key directory go unchecked, so `t.TempDir()`
 works. A key is written once, through a temp file linked into place,
 and synced before it is handed out, so concurrent first callers across
 processes share one key. `PublicKeys` lists every signing key file,
-checks the sealing key file `AES-256-GCM.pem` the same way without
+checks the sealing key file `A256GCM.pem` the same way without
 listing it, and refuses anything else it finds in a group directory.
-Losing `AES-256-GCM.pem` loses everything sealed with it, so back it up
+Losing `A256GCM.pem` loses everything sealed with it, so back it up
 with the sealed data. Group names are lowercase
 letters, digits, `_` and `-`. The backend runs on Unix only.
 

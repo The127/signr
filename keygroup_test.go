@@ -39,7 +39,7 @@ func TestABackendThatCannotSealIsRefusedInsteadOfHandingOutNoKey(t *testing.T) {
 	group := manager.GetGroup("sealing")
 
 	// act
-	key, err := group.GetSealingKey("AES-256-GCM")
+	key, err := group.GetSealingKey("A256GCM")
 
 	// assert
 	assert.ErrorContains(t, err, "cannot seal")

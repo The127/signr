@@ -10,7 +10,7 @@ import (
 
 // GetSealingKey returns the group's key for sealing data, generating it on the first call.
 func (g *keyGroup) GetSealingKey(algorithm string) (signr.SealingKey, error) {
-	if algorithm != "AES-256-GCM" {
+	if algorithm != "A256GCM" {
 		return nil, fmt.Errorf("unsupported algorithm %q", algorithm)
 	}
 

@@ -54,7 +54,7 @@ func firstSealingKeysAtOnce(t *testing.T, path string, callers int) []signr.Seal
 		group := newGroup(t, path, "sealing")
 		waitGroup.Go(func() {
 			<-start
-			keys[index], errs[index] = group.GetSealingKey("AES-256-GCM")
+			keys[index], errs[index] = group.GetSealingKey("A256GCM")
 		})
 	}
 
@@ -132,7 +132,7 @@ func TestConcurrentFirstSealingCallsAgreeOnTheKeyThatSurvivesARestart(t *testing
 	keys := firstSealingKeysAtOnce(t, path, 16)
 
 	// assert
-	stored, err := newGroup(t, path, "sealing").GetSealingKey("AES-256-GCM")
+	stored, err := newGroup(t, path, "sealing").GetSealingKey("A256GCM")
 	require.NoError(t, err)
 	sealed, err := stored.Seal([]byte("hello"), nil)
 	require.NoError(t, err)
