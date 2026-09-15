@@ -76,7 +76,7 @@ func TestAForeignDotFileInAGroupFailsTheListingClosed(t *testing.T) {
 func TestALeftoverTemporaryKeyFileIsNotListed(t *testing.T) {
 	for _, name := range []string{
 		".EdDSA.pem.0123456789abcdef0123456789abcdef",
-		".AES-256-GCM.pem.0123456789abcdef0123456789abcdef",
+		".A256GCM.pem.0123456789abcdef0123456789abcdef",
 	} {
 		t.Run(name, func(t *testing.T) {
 			// arrange

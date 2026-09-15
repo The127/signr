@@ -12,9 +12,9 @@ import (
 	"github.com/The127/signr/internal/keyinfra"
 )
 
-const sealingAlgorithm = "AES-256-GCM"
+const sealingAlgorithm = "A256GCM"
 
-const sealingKeyBlockType = "AES-256-GCM KEY"
+const sealingKeyBlockType = "A256GCM KEY"
 
 // GetSealingKey returns the key the group keeps for sealing with the algorithm, generating and storing one on the
 // first call.

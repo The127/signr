@@ -47,9 +47,9 @@ func TestASealingKeyFileOpenToGroupOrOthersFailsTheListingClosed(t *testing.T) {
 	// arrange
 	path := t.TempDir()
 	group := newGroup(t, path, "signing")
-	_, err := group.GetSealingKey("AES-256-GCM")
+	_, err := group.GetSealingKey("A256GCM")
 	require.NoError(t, err)
-	require.NoError(t, os.Chmod(filepath.Join(path, "signing", "AES-256-GCM.pem"), 0o640))
+	require.NoError(t, os.Chmod(filepath.Join(path, "signing", "A256GCM.pem"), 0o640))
 
 	// act
 	_, err = group.PublicKeys()

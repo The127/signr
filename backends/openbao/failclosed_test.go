@@ -283,7 +283,7 @@ func TestASealingKeyTransitHoldsAsAnotherTypeFailsClosed(t *testing.T) {
 	require.NoError(t, err)
 
 	// act
-	_, err = manager.GetGroup("sealing").GetSealingKey("AES-256-GCM")
+	_, err = manager.GetGroup("sealing").GetSealingKey("A256GCM")
 
 	// assert
 	assert.ErrorContains(t, err, "aes128-gcm96")
@@ -313,7 +313,7 @@ func TestASealedValueSpelledAnotherWayFailsClosedInsteadOfOpening(t *testing.T) 
 				Backend: config,
 			})
 			require.NoError(t, err)
-			key, err := manager.GetGroup("sealing").GetSealingKey("AES-256-GCM")
+			key, err := manager.GetGroup("sealing").GetSealingKey("A256GCM")
 			require.NoError(t, err)
 			_, err = key.Open([]byte(canonical), nil)
 			require.NoError(t, err)

@@ -10,7 +10,7 @@ import (
 	"github.com/The127/signr"
 )
 
-const sealingAlgorithm = "AES-256-GCM"
+const sealingAlgorithm = "A256GCM"
 
 const sealingKeyType = "aes256-gcm96"
 

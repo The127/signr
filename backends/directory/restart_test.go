@@ -60,11 +60,11 @@ func TestAnRSAKeySurvivesARestartAndStillSignsWhatTheStandardLibraryVerifies(t *
 func TestASealedValueSurvivesARestart(t *testing.T) {
 	// arrange
 	path := t.TempDir()
-	key, err := newGroup(t, path, "sealing").GetSealingKey("AES-256-GCM")
+	key, err := newGroup(t, path, "sealing").GetSealingKey("A256GCM")
 	require.NoError(t, err)
 	sealed, err := key.Seal([]byte("hello"), []byte("label"))
 	require.NoError(t, err)
-	again, err := newGroup(t, path, "sealing").GetSealingKey("AES-256-GCM")
+	again, err := newGroup(t, path, "sealing").GetSealingKey("A256GCM")
 	require.NoError(t, err)
 
 	// act

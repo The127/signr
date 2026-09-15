@@ -65,10 +65,10 @@ func plantSealingKey(t *testing.T, path string, group string, secret []byte) {
 
 	require.NoError(t, os.Mkdir(filepath.Join(path, group), 0o700))
 	serialized := pem.EncodeToMemory(&pem.Block{
-		Type:  "AES-256-GCM KEY",
+		Type:  "A256GCM KEY",
 		Bytes: secret,
 	})
-	require.NoError(t, os.WriteFile(filepath.Join(path, group, "AES-256-GCM.pem"), serialized, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(path, group, "A256GCM.pem"), serialized, 0o600))
 }
 
 func TestASealingKeyFileOfTheWrongLengthFailsClosedInsteadOfSealingWithAWeakerKey(t *testing.T) {
@@ -78,7 +78,7 @@ func TestASealingKeyFileOfTheWrongLengthFailsClosedInsteadOfSealingWithAWeakerKe
 	group := newGroup(t, path, "sealing")
 
 	// act
-	_, err := group.GetSealingKey("AES-256-GCM")
+	_, err := group.GetSealingKey("A256GCM")
 
 	// assert
 	assert.ErrorContains(t, err, "not 16")

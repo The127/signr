@@ -21,7 +21,7 @@ func (s *SealingSuite) newSealingKey() signr.SealingKey {
 	manager, err := signr.New(signr.Config{Backend: s.Backend})
 	s.Require().NoError(err)
 
-	key, err := manager.GetGroup("sealing").GetSealingKey("AES-256-GCM")
+	key, err := manager.GetGroup("sealing").GetSealingKey("A256GCM")
 	s.Require().NoError(err)
 
 	return key
@@ -139,11 +139,11 @@ func (s *SealingSuite) TestAKeyFetchedAgainOpensWhatTheFirstSealed() {
 	manager, err := signr.New(signr.Config{Backend: s.Backend})
 	s.Require().NoError(err)
 	group := manager.GetGroup("sealing")
-	first, err := group.GetSealingKey("AES-256-GCM")
+	first, err := group.GetSealingKey("A256GCM")
 	s.Require().NoError(err)
 	sealed, err := first.Seal([]byte("hello"), nil)
 	s.Require().NoError(err)
-	again, err := group.GetSealingKey("AES-256-GCM")
+	again, err := group.GetSealingKey("A256GCM")
 	s.Require().NoError(err)
 
 	// act
@@ -158,9 +158,9 @@ func (s *SealingSuite) TestOpeningAnotherGroupsCiphertextFailsClosed() {
 	// arrange
 	manager, err := signr.New(signr.Config{Backend: s.Backend})
 	s.Require().NoError(err)
-	sealer, err := manager.GetGroup("a").GetSealingKey("AES-256-GCM")
+	sealer, err := manager.GetGroup("a").GetSealingKey("A256GCM")
 	s.Require().NoError(err)
-	opener, err := manager.GetGroup("b").GetSealingKey("AES-256-GCM")
+	opener, err := manager.GetGroup("b").GetSealingKey("A256GCM")
 	s.Require().NoError(err)
 	sealed, err := sealer.Seal([]byte("hello"), nil)
 	s.Require().NoError(err)
@@ -179,7 +179,7 @@ func (s *SealingSuite) TestSealingLeavesTheGroupsPublicKeysAlone() {
 	group := manager.GetGroup("sealing")
 	key, err := group.GetKey("EdDSA")
 	s.Require().NoError(err)
-	_, err = group.GetSealingKey("AES-256-GCM")
+	_, err = group.GetSealingKey("A256GCM")
 	s.Require().NoError(err)
 
 	// act
@@ -219,7 +219,7 @@ func (s *SealingSuite) TestNoCipherIsReachableByReflectionFromTheManagerTheGroup
 	manager, err := signr.New(signr.Config{Backend: s.Backend})
 	s.Require().NoError(err)
 	group := manager.GetGroup("sealing")
-	key, err := group.GetSealingKey("AES-256-GCM")
+	key, err := group.GetSealingKey("A256GCM")
 	s.Require().NoError(err)
 	_, err = key.Seal([]byte("hello"), nil)
 	s.Require().NoError(err)

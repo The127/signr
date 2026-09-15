@@ -83,16 +83,14 @@ The same program is in `example/`.
 
 `signr.New` takes a backend configuration and returns the `KeyManager`.
 `GetGroup(name)` names a bucket of keys that belong together, for
-example every key that signs access tokens. Within a group a signing
-key is addressed by its JWA algorithm name and the sealing key by
-`AES-256-GCM`.
+example every key that signs access tokens. Within a group a key is
+addressed by its JWA algorithm name.
 
 ### Algorithms
 
 Signing: `EdDSA` (Ed25519), `RS256`, `RS384` and `RS512` (RSA-4096 with
-PKCS #1 v1.5 over the named SHA-2 hash). Sealing: `AES-256-GCM`. The
-sealing name is signr's own and not a JWA name, because sealed data is
-signr's format and not JWE. An unknown name is an error, never a panic.
+PKCS #1 v1.5 over the named SHA-2 hash). Sealing: `A256GCM`
+(AES-256-GCM). An unknown name is an error, never a panic.
 
 ### Signing keys
 
@@ -109,17 +107,23 @@ key.
 
 ### Sealing keys
 
-`GetSealingKey("AES-256-GCM")` returns the group's `SealingKey`.
+`GetSealingKey("A256GCM")` returns the group's `SealingKey`.
 `Seal(plaintext, associatedData)` encrypts, and
 `Open(ciphertext, associatedData)` returns the plaintext only for bytes
 this group's key sealed, unaltered, with the same associated data.
 Anything else is an error. The associated data is a value the caller
-chooses per seal and passes again to open, like a login password. It is
-not stored in the sealed bytes, and `nil` means none. The backend's key
-protects the data, so the associated data adds nothing if that key
-leaks. Sealed bytes are binary, encode them to store them as text. The
-sealed format may still change before the first release that ships
-sealing.
+chooses per seal and passes again to open, like a login password, and
+`nil` means none. It is not a secret. The backend's key protects the
+data, so the associated data adds nothing if that key leaks.
+
+The memory and directory backends seal as a compact JWE (RFC 7516) with
+`dir` and `A256GCM`, so any JOSE library opens a sealed value with the
+key. Associated data that is not empty travels base64url-encoded in the
+protected header `aad`, readable by anyone who sees the sealed value.
+`Open` accepts only the exact shape `Seal` writes, before any key work:
+five parts in canonical base64url, no encrypted key, a 16-byte tag, and
+a header of `alg`, `enc` and `aad` spelled the one way `Seal` spells
+it.
 
 ### Backends
 
@@ -145,7 +149,7 @@ version's public key before handing it out.
 takes a `TokenSource` that is asked before every request, `StaticToken`
 answers a fixed token. Redirects are not followed, so the token never
 travels to another host. Group names are letters, digits, `_` and `-`.
-The first `GetSealingKey` creates the Transit key `<group>-AES-256-GCM`
+The first `GetSealingKey` creates the Transit key `<group>-A256GCM`
 as `aes256-gcm96`, and a key Transit holds under that name as another
 type is refused. Transit seals and opens, so every `Seal` and `Open` is
 one request and the plaintext travels to OpenBao. Sealed data is
@@ -164,9 +168,9 @@ directories above the key directory go unchecked, so `t.TempDir()`
 works. A key is written once, through a temp file linked into place,
 and synced before it is handed out, so concurrent first callers across
 processes share one key. `PublicKeys` lists every signing key file,
-checks the sealing key file `AES-256-GCM.pem` the same way without
+checks the sealing key file `A256GCM.pem` the same way without
 listing it, and refuses anything else it finds in a group directory.
-Losing `AES-256-GCM.pem` loses everything sealed with it, so back it up
+Losing `A256GCM.pem` loses everything sealed with it, so back it up
 with the sealed data. Group names are lowercase
 letters, digits, `_` and `-`. The backend runs on Unix only.
 
