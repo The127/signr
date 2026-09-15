@@ -8,8 +8,9 @@ or a TPM can stand behind the same interface as the in-memory default.
 signr provides:
 
 - A `KeyManager` that organizes keys into named groups.
-- Pluggable backends that decide where keys live. An in-memory backend
-  and an OpenBao Transit backend ship with the module.
+- Pluggable backends that decide where keys live. An in-memory backend,
+  an OpenBao Transit backend and a directory backend ship with the
+  module.
 - A `SigningKey` that signs and verifies, exposes its public key and
   key id, and hands out a `crypto.Signer` for the standard library's
   TLS, SSH and certificate APIs.
@@ -128,6 +129,21 @@ version's public key before handing it out.
 takes a `TokenSource` that is asked before every request, `StaticToken`
 answers a fixed token. Redirects are not followed, so the token never
 travels to another host. Group names are letters, digits, `_` and `-`.
+
+The directory backend keeps each key as a PEM file at
+`<path>/<group>/<algorithm>.pem`, so keys survive a restart. The path
+must be absolute. The backend refuses the directory the way ssh's
+StrictModes refuses a key file. The key directory and its group
+directories must belong to the process, every directory above them up
+to the home directory from the user database must belong to root or the
+process, and none of them may be writable by group or others. Key files
+must be private regular files owned by the process. Under `go test` the
+directories above the key directory go unchecked, so `t.TempDir()`
+works. A key is written once, through a temp file linked into place,
+and synced before it is handed out, so concurrent first callers across
+processes share one key. `PublicKeys` lists every key file and refuses
+anything else it finds in a group directory. Group names are lowercase
+letters, digits, `_` and `-`. The backend runs on Unix only.
 
 ### JSON web tokens
 
