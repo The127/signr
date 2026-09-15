@@ -62,14 +62,14 @@ type sealingKey struct {
 	open func(dst, nonce, ciphertext, additionalData []byte) ([]byte, error)
 }
 
-// Seal returns the plaintext sealed for Open.
-func (key sealingKey) Seal(plaintext []byte) ([]byte, error) {
-	return key.seal(nil, nil, plaintext, nil), nil
+// Seal returns the plaintext sealed for Open with the same associated data.
+func (key sealingKey) Seal(plaintext []byte, associatedData []byte) ([]byte, error) {
+	return key.seal(nil, nil, plaintext, associatedData), nil
 }
 
-// Open returns the plaintext of a ciphertext Seal produced.
-func (key sealingKey) Open(ciphertext []byte) ([]byte, error) {
-	plaintext, err := key.open(nil, nil, ciphertext, nil)
+// Open returns the plaintext of a ciphertext Seal produced with the same associated data.
+func (key sealingKey) Open(ciphertext []byte, associatedData []byte) ([]byte, error) {
+	plaintext, err := key.open(nil, nil, ciphertext, associatedData)
 	if err != nil {
 		return nil, fmt.Errorf("opening sealed data: %w", err)
 	}

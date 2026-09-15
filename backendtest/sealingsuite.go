@@ -30,15 +30,45 @@ func (s *SealingSuite) newSealingKey() signr.SealingKey {
 func (s *SealingSuite) TestOpenReturnsWhatSealSealed() {
 	// arrange
 	key := s.newSealingKey()
-	sealed, err := key.Seal([]byte("hello"))
+	sealed, err := key.Seal([]byte("hello"), nil)
 	s.Require().NoError(err)
 
 	// act
-	opened, err := key.Open(sealed)
+	opened, err := key.Open(sealed, nil)
 
 	// assert
 	s.Require().NoError(err)
 	s.Equal([]byte("hello"), opened)
+}
+
+func (s *SealingSuite) TestOpenWithTheSameAssociatedDataReturnsWhatSealSealed() {
+	// arrange
+	key := s.newSealingKey()
+	sealed, err := key.Seal([]byte("hello"), []byte("label"))
+	s.Require().NoError(err)
+
+	// act
+	opened, err := key.Open(sealed, []byte("label"))
+
+	// assert
+	s.Require().NoError(err)
+	s.Equal([]byte("hello"), opened)
+}
+
+func (s *SealingSuite) TestOpeningWithOtherAssociatedDataFailsClosed() {
+	key := s.newSealingKey()
+	sealed, err := key.Seal([]byte("hello"), []byte("label"))
+	s.Require().NoError(err)
+
+	for _, other := range [][]byte{nil, []byte("labex"), []byte("other label")} {
+		s.Run(fmt.Sprintf("%q", other), func() {
+			// act
+			_, err := key.Open(sealed, other)
+
+			// assert
+			s.Error(err)
+		})
+	}
 }
 
 func (s *SealingSuite) TestTheCiphertextDoesNotContainThePlaintext() {
@@ -47,7 +77,7 @@ func (s *SealingSuite) TestTheCiphertextDoesNotContainThePlaintext() {
 	plaintext := []byte("a message that must not be readable")
 
 	// act
-	sealed, err := key.Seal(plaintext)
+	sealed, err := key.Seal(plaintext, nil)
 
 	// assert
 	s.Require().NoError(err)
@@ -57,11 +87,11 @@ func (s *SealingSuite) TestTheCiphertextDoesNotContainThePlaintext() {
 func (s *SealingSuite) TestSealingTwiceYieldsDifferentCiphertexts() {
 	// arrange
 	key := s.newSealingKey()
-	first, err := key.Seal([]byte("hello"))
+	first, err := key.Seal([]byte("hello"), nil)
 	s.Require().NoError(err)
 
 	// act
-	second, err := key.Seal([]byte("hello"))
+	second, err := key.Seal([]byte("hello"), nil)
 
 	// assert
 	s.Require().NoError(err)
@@ -70,7 +100,7 @@ func (s *SealingSuite) TestSealingTwiceYieldsDifferentCiphertexts() {
 
 func (s *SealingSuite) TestOpeningAFlippedBitAnywhereFailsClosed() {
 	key := s.newSealingKey()
-	sealed, err := key.Seal([]byte("hello"))
+	sealed, err := key.Seal([]byte("hello"), nil)
 	s.Require().NoError(err)
 
 	for index := range sealed {
@@ -80,7 +110,7 @@ func (s *SealingSuite) TestOpeningAFlippedBitAnywhereFailsClosed() {
 			tampered[index] ^= 0x01
 
 			// act
-			_, err := key.Open(tampered)
+			_, err := key.Open(tampered, nil)
 
 			// assert
 			s.Error(err)
@@ -90,13 +120,13 @@ func (s *SealingSuite) TestOpeningAFlippedBitAnywhereFailsClosed() {
 
 func (s *SealingSuite) TestOpeningATruncatedCiphertextFailsClosedInsteadOfPanicking() {
 	key := s.newSealingKey()
-	sealed, err := key.Seal([]byte("hello"))
+	sealed, err := key.Seal([]byte("hello"), nil)
 	s.Require().NoError(err)
 
 	for length := range sealed {
 		s.Run(fmt.Sprintf("%d bytes", length), func() {
 			// act
-			_, err := key.Open(sealed[:length])
+			_, err := key.Open(sealed[:length], nil)
 
 			// assert
 			s.Error(err)
@@ -111,13 +141,13 @@ func (s *SealingSuite) TestAKeyFetchedAgainOpensWhatTheFirstSealed() {
 	group := manager.GetGroup("sealing")
 	first, err := group.GetSealingKey("AES-256-GCM")
 	s.Require().NoError(err)
-	sealed, err := first.Seal([]byte("hello"))
+	sealed, err := first.Seal([]byte("hello"), nil)
 	s.Require().NoError(err)
 	again, err := group.GetSealingKey("AES-256-GCM")
 	s.Require().NoError(err)
 
 	// act
-	opened, err := again.Open(sealed)
+	opened, err := again.Open(sealed, nil)
 
 	// assert
 	s.Require().NoError(err)
@@ -132,11 +162,11 @@ func (s *SealingSuite) TestOpeningAnotherGroupsCiphertextFailsClosed() {
 	s.Require().NoError(err)
 	opener, err := manager.GetGroup("b").GetSealingKey("AES-256-GCM")
 	s.Require().NoError(err)
-	sealed, err := sealer.Seal([]byte("hello"))
+	sealed, err := sealer.Seal([]byte("hello"), nil)
 	s.Require().NoError(err)
 
 	// act
-	_, err = opener.Open(sealed)
+	_, err = opener.Open(sealed, nil)
 
 	// assert
 	s.Error(err)
@@ -172,7 +202,7 @@ func (s *SealingSuite) TestNoCipherIsReachableByReflectionFromTheManagerTheGroup
 	group := manager.GetGroup("sealing")
 	key, err := group.GetSealingKey("AES-256-GCM")
 	s.Require().NoError(err)
-	_, err = key.Seal([]byte("hello"))
+	_, err = key.Seal([]byte("hello"), nil)
 	s.Require().NoError(err)
 
 	// act
