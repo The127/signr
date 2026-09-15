@@ -2,13 +2,17 @@ package signr
 
 import "fmt"
 
-// KeyGroup defines an interface for retrieving signing keys based on a specified JSON Web Algorithm (JWA).
+// KeyGroup hands out the keys of one group: signing keys by algorithm, and its sealing key.
 type KeyGroup interface {
 	// GetKey retrieves the signing key corresponding to the specified JSON Web Algorithm (JWA).
 	GetKey(jwa string) (SigningKey, error)
 
 	// PublicKeys retrieves the public keys of every key version in the group that can still verify, in no particular order.
 	PublicKeys() ([]PublicKey, error)
+
+	// GetSealingKey returns the group's key for sealing data with the named algorithm, or an error when the backend
+	// cannot seal with it.
+	GetSealingKey(algorithm string) (SealingKey, error)
 }
 
 // errorGroup is a struct that implements the KeyGroup interface and wraps an error for operations that fail.
@@ -23,6 +27,11 @@ func (g *errorGroup) GetKey(_ string) (SigningKey, error) {
 
 // PublicKeys retrieves the public keys of the group or returns an error if one is present in the group.
 func (g *errorGroup) PublicKeys() ([]PublicKey, error) {
+	return nil, g.err
+}
+
+// GetSealingKey returns the error the group was created with.
+func (g *errorGroup) GetSealingKey(_ string) (SealingKey, error) {
 	return nil, g.err
 }
 
@@ -52,4 +61,19 @@ func (g *keyGroup) PublicKeys() ([]PublicKey, error) {
 	}
 
 	return publicKeys, nil
+}
+
+// GetSealingKey returns the backend group's sealing key, refusing a backend group that cannot seal.
+func (g *keyGroup) GetSealingKey(algorithm string) (SealingKey, error) {
+	sealing, ok := g.backend.(SealingBackendGroup)
+	if !ok {
+		return nil, fmt.Errorf("backend group %T cannot seal", g.backend)
+	}
+
+	key, err := sealing.GetSealingKey(algorithm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sealing key: %w", err)
+	}
+
+	return key, nil
 }

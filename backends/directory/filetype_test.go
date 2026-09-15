@@ -1,6 +1,7 @@
 package directory_test
 
 import (
+	"encoding/pem"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -57,4 +58,41 @@ func TestAKeyFileThatIsAFIFOFailsClosedInsteadOfHanging(t *testing.T) {
 
 	// assert
 	assert.ErrorContains(t, err, "not a regular file")
+}
+
+func plantSealingKey(t *testing.T, path string, group string, secret []byte) {
+	t.Helper()
+
+	require.NoError(t, os.Mkdir(filepath.Join(path, group), 0o700))
+	serialized := pem.EncodeToMemory(&pem.Block{
+		Type:  "AES-256-GCM KEY",
+		Bytes: secret,
+	})
+	require.NoError(t, os.WriteFile(filepath.Join(path, group, "AES-256-GCM.pem"), serialized, 0o600))
+}
+
+func TestASealingKeyFileOfTheWrongLengthFailsClosedInsteadOfSealingWithAWeakerKey(t *testing.T) {
+	// arrange
+	path := t.TempDir()
+	plantSealingKey(t, path, "sealing", make([]byte, 16))
+	group := newGroup(t, path, "sealing")
+
+	// act
+	_, err := group.GetSealingKey("AES-256-GCM")
+
+	// assert
+	assert.ErrorContains(t, err, "not 16")
+}
+
+func TestASealingKeyFileOfTheWrongLengthFailsTheListingClosed(t *testing.T) {
+	// arrange
+	path := t.TempDir()
+	plantSealingKey(t, path, "sealing", make([]byte, 16))
+	group := newGroup(t, path, "sealing")
+
+	// act
+	_, err := group.PublicKeys()
+
+	// assert
+	assert.ErrorContains(t, err, "not 16")
 }

@@ -23,9 +23,17 @@ func (group *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 		return nil, err
 	}
 
+	return inGroupDirectory(group, func(keys *os.Root) (signr.SigningKey, error) {
+		return readOrGenerate(keys, keyStrategy, jwa)
+	})
+}
+
+func inGroupDirectory[T any](group *keyGroup, readOrGenerate func(keys *os.Root) (T, error)) (T, error) {
+	var none T
+
 	root, err := openKeyDirectory(group.directory)
 	if err != nil {
-		return nil, err
+		return none, err
 	}
 	defer func() {
 		_ = root.Close()
@@ -33,30 +41,30 @@ func (group *keyGroup) GetKey(jwa string) (signr.SigningKey, error) {
 
 	keys, err := openGroupDirectory(root, group.name)
 	if err != nil {
-		return nil, err
+		return none, err
 	}
 	defer func() {
 		_ = keys.Close()
 	}()
 
-	key, err := readOrGenerate(keys, keyStrategy, jwa)
+	kept, err := readOrGenerate(keys)
 	if err != nil {
-		return nil, fmt.Errorf("group %s: %w", group.name, err)
+		return none, fmt.Errorf("group %s: %w", group.name, err)
 	}
 
 	// another process may have stored the key without its directory sync reaching the disk yet, and a handed-out
 	// key must outlive a crash
 	err = syncDirectory(keys, ".")
 	if err != nil {
-		return nil, err
+		return none, err
 	}
 
 	err = syncDirectory(root, ".")
 	if err != nil {
-		return nil, err
+		return none, err
 	}
 
-	return key, nil
+	return kept, nil
 }
 
 func readOrGenerate(keys *os.Root, keyStrategy keyinfra.KeyAlgorithmStrategy, jwa string) (signr.SigningKey, error) {

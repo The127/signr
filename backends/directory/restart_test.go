@@ -56,3 +56,21 @@ func TestAnRSAKeySurvivesARestartAndStillSignsWhatTheStandardLibraryVerifies(t *
 	require.NoError(t, err)
 	assert.NoError(t, rsa.VerifyPKCS1v15(publicKey.(*rsa.PublicKey), crypto.SHA256, digest[:], signature))
 }
+
+func TestASealedValueSurvivesARestart(t *testing.T) {
+	// arrange
+	path := t.TempDir()
+	key, err := newGroup(t, path, "sealing").GetSealingKey("AES-256-GCM")
+	require.NoError(t, err)
+	sealed, err := key.Seal([]byte("hello"), []byte("label"))
+	require.NoError(t, err)
+	again, err := newGroup(t, path, "sealing").GetSealingKey("AES-256-GCM")
+	require.NoError(t, err)
+
+	// act
+	opened, err := again.Open(sealed, []byte("label"))
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t, []byte("hello"), opened)
+}

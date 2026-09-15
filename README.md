@@ -83,14 +83,16 @@ The same program is in `example/`.
 
 `signr.New` takes a backend configuration and returns the `KeyManager`.
 `GetGroup(name)` names a bucket of keys that belong together, for
-example every key that signs access tokens. Within a group a key is
-addressed by its JWA algorithm name.
+example every key that signs access tokens. Within a group a signing
+key is addressed by its JWA algorithm name and the sealing key by
+`AES-256-GCM`.
 
 ### Algorithms
 
-`EdDSA` (Ed25519), `RS256`, `RS384` and `RS512` (RSA-4096 with PKCS #1
-v1.5 over the named SHA-2 hash). An unknown name is an error, never a
-panic.
+Signing: `EdDSA` (Ed25519), `RS256`, `RS384` and `RS512` (RSA-4096 with
+PKCS #1 v1.5 over the named SHA-2 hash). Sealing: `AES-256-GCM`. The
+sealing name is signr's own and not a JWA name, because sealed data is
+signr's format and not JWE. An unknown name is an error, never a panic.
 
 ### Signing keys
 
@@ -105,6 +107,20 @@ TLS 1.3. `PublicKey()` and a signer's `Public()` hand out a copy the
 caller owns. `KeyID()` is the RFC 7638 JWK thumbprint of the public
 key.
 
+### Sealing keys
+
+`GetSealingKey("AES-256-GCM")` returns the group's `SealingKey`.
+`Seal(plaintext, associatedData)` encrypts, and
+`Open(ciphertext, associatedData)` returns the plaintext only for bytes
+this group's key sealed, unaltered, with the same associated data.
+Anything else is an error. The associated data is a value the caller
+chooses per seal and passes again to open, like a login password. It is
+not stored in the sealed bytes, and `nil` means none. The backend's key
+protects the data, so the associated data adds nothing if that key
+leaks. Sealed bytes are binary, encode them to store them as text. The
+sealed format may still change before the first release that ships
+sealing.
+
 ### Backends
 
 A backend implements `signr.Backend` and `signr.BackendGroup` and owns
@@ -114,7 +130,7 @@ outside a backend sees private key material as bytes.
 The in-memory backend keeps keys in process memory and generates a key
 on the first `GetKey` for an algorithm in a group, under the group's
 lock, so concurrent first callers share one key. Keys are gone when the
-process ends. It needs a `Clock` so key creation times can be controlled
+process ends, so data it sealed cannot be opened after a restart. It needs a `Clock` so key creation times can be controlled
 in tests. It does not rotate keys yet.
 
 The OpenBao backend keeps keys in a Transit mount. OpenBao generates
@@ -129,6 +145,7 @@ version's public key before handing it out.
 takes a `TokenSource` that is asked before every request, `StaticToken`
 answers a fixed token. Redirects are not followed, so the token never
 travels to another host. Group names are letters, digits, `_` and `-`.
+It does not seal yet.
 
 The directory backend keeps each key as a PEM file at
 `<path>/<group>/<algorithm>.pem`, so keys survive a restart. The path
@@ -141,8 +158,11 @@ must be private regular files owned by the process. Under `go test` the
 directories above the key directory go unchecked, so `t.TempDir()`
 works. A key is written once, through a temp file linked into place,
 and synced before it is handed out, so concurrent first callers across
-processes share one key. `PublicKeys` lists every key file and refuses
-anything else it finds in a group directory. Group names are lowercase
+processes share one key. `PublicKeys` lists every signing key file,
+checks the sealing key file `AES-256-GCM.pem` the same way without
+listing it, and refuses anything else it finds in a group directory.
+Losing `AES-256-GCM.pem` loses everything sealed with it, so back it up
+with the sealed data. Group names are lowercase
 letters, digits, `_` and `-`. The backend runs on Unix only.
 
 ### JSON web tokens
