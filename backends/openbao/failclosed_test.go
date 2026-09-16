@@ -1,7 +1,10 @@
 package openbao_test
 
 import (
+	"bytes"
 	"crypto"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
@@ -20,6 +23,7 @@ import (
 
 	"github.com/The127/signr"
 	"github.com/The127/signr/backends/openbao"
+	"github.com/The127/signr/backendtest"
 )
 
 type transitAnswers struct {
@@ -27,6 +31,7 @@ type transitAnswers struct {
 	key       string
 	signature string
 	plaintext string
+	onDecrypt func(ciphertext string)
 }
 
 func fakeTransit(t *testing.T, answers transitAnswers) openbao.Config {
@@ -41,6 +46,15 @@ func fakeTransit(t *testing.T, answers transitAnswers) openbao.Config {
 		}
 
 		if strings.Contains(r.URL.Path, "/decrypt/") {
+			if answers.onDecrypt != nil {
+				var request struct {
+					Ciphertext string `json:"ciphertext"`
+				}
+
+				assert.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+				answers.onDecrypt(request.Ciphertext)
+			}
+
 			_, err := w.Write([]byte(`{"data":{"plaintext":"` + answers.plaintext + `"}}`))
 			assert.NoError(t, err)
 
@@ -289,8 +303,24 @@ func TestASealingKeyTransitHoldsAsAnotherTypeFailsClosed(t *testing.T) {
 	assert.ErrorContains(t, err, "aes128-gcm96")
 }
 
-func TestASealedValueSpelledAnotherWayFailsClosedInsteadOfOpening(t *testing.T) {
+// a stream as signr writes it, with the wrapped key text given and the plaintext sealed under the data key
+func streamWith(t *testing.T, wrapped string, dataKey []byte, plaintext []byte) []byte {
+	t.Helper()
+
+	stream := []byte{1, 0, byte(len(wrapped))}
+	stream = append(stream, wrapped...)
+	block, err := aes.NewCipher(dataKey)
+	require.NoError(t, err)
+	gcm, err := cipher.NewGCM(block)
+	require.NoError(t, err)
+	lastChunkNonce := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+
+	return gcm.Seal(stream, lastChunkNonce, plaintext, []byte{1})
+}
+
+func TestAWrappedKeySpelledAnotherWayNeverReachesTransit(t *testing.T) {
 	canonical := "vault:v1:QQ=="
+	dataKey := bytes.Repeat([]byte{7}, 32)
 
 	for _, respelled := range []string{
 		"vault:v1:QR==",
@@ -303,10 +333,14 @@ func TestASealedValueSpelledAnotherWayFailsClosedInsteadOfOpening(t *testing.T) 
 	} {
 		t.Run(respelled, func(t *testing.T) {
 			// arrange
+			sent := ""
 			config := fakeTransit(t, transitAnswers{
 				keyStatus: http.StatusOK,
 				key:       sealingTransitKey(t, "aes256-gcm96"),
-				plaintext: base64.StdEncoding.EncodeToString([]byte("hello")),
+				plaintext: base64.StdEncoding.EncodeToString(dataKey),
+				onDecrypt: func(ciphertext string) {
+					sent = ciphertext
+				},
 			})
 
 			manager, err := signr.New(signr.Config{
@@ -315,14 +349,18 @@ func TestASealedValueSpelledAnotherWayFailsClosedInsteadOfOpening(t *testing.T) 
 			require.NoError(t, err)
 			key, err := manager.GetGroup("sealing").GetSealingKey("A256GCM")
 			require.NoError(t, err)
-			_, err = key.Open(strings.NewReader(canonical), nil)
+			opened, err := backendtest.Open(key, streamWith(t, canonical, dataKey, []byte("hello")), nil)
 			require.NoError(t, err)
+			require.Equal(t, []byte("hello"), opened)
+			require.Equal(t, canonical, sent)
+			sent = ""
 
 			// act
-			_, err = key.Open(strings.NewReader(respelled), nil)
+			_, err = backendtest.Open(key, streamWith(t, respelled, dataKey, []byte("hello")), nil)
 
 			// assert
 			assert.Error(t, err)
+			assert.Empty(t, sent)
 		})
 	}
 }

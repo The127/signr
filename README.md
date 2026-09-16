@@ -156,10 +156,14 @@ answers a fixed token. Redirects are not followed, so the token never
 travels to another host. Group names are letters, digits, `_` and `-`.
 The first `GetSealingKey` creates the Transit key `<group>-A256GCM`
 as `aes256-gcm96`, and a key Transit holds under that name as another
-type is refused. Transit seals and opens, so every `Seal` and `Open` is
-one request and the plaintext travels to OpenBao. Sealed data is
-Transit's `vault:v<version>:<base64>` text, and `Open` refuses base64
-that is not in its one canonical form.
+type is refused. The backend seals the same chunked stream as the
+others, and Transit only wraps the data key: every `Seal` and `Open`
+is one request carrying 32 bytes, and the plaintext never leaves the
+process. The header holds Transit's `vault:v<version>:<base64>` text
+for the data key, so any Transit client with the key can unwrap it,
+and `Open` refuses a spelling of it that is not the one Transit wrote.
+Transit wraps a key version at most about four billion times, so set
+`auto_rotate_period` on the key.
 
 The directory backend keeps each key as a PEM file at
 `<path>/<group>/<algorithm>.pem`, so keys survive a restart. The path

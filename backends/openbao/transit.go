@@ -69,8 +69,7 @@ type sealingKeyResponse struct {
 }
 
 type encryptRequest struct {
-	Plaintext      string `json:"plaintext"`
-	AssociatedData string `json:"associated_data,omitempty"`
+	Plaintext string `json:"plaintext"`
 }
 
 type encryptResponse struct {
@@ -80,8 +79,7 @@ type encryptResponse struct {
 }
 
 type decryptRequest struct {
-	Ciphertext     string `json:"ciphertext"`
-	AssociatedData string `json:"associated_data,omitempty"`
+	Ciphertext string `json:"ciphertext"`
 }
 
 type decryptResponse struct {
