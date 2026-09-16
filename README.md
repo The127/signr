@@ -119,14 +119,16 @@ chooses per seal and passes again to open, like a login password, and
 `nil` means none. It is not a secret. The backend's key protects the
 data, so the associated data adds nothing if that key leaks.
 
-The memory and directory backends seal as a compact JWE (RFC 7516) with
-`dir` and `A256GCM`, so any JOSE library opens a sealed value with the
-key. Associated data that is not empty travels base64url-encoded in the
-protected header `aad`, readable by anyone who sees the sealed value.
-`Open` accepts only the exact shape `Seal` writes, before any key work:
-five parts in canonical base64url, no encrypted key, a 16-byte tag, and
-a header of `alg`, `enc` and `aad` spelled the one way `Seal` spells
-it.
+The memory and directory backends seal as a chunked stream. Every
+`Seal` draws a fresh data key, wraps it with A256KW (RFC 3394) under
+the group's key into a short header, and seals the data in 64 KiB
+chunks with AES-256-GCM under the data key, so the group's key only
+ever wraps and the data never travels anywhere. The header is a version
+byte, a two-byte length and the wrapped key. Each chunk's nonce is its
+counter and a flag on the last chunk, and its associated data is the
+version byte and the caller's associated data, which is written
+nowhere. `Open` refuses a stream that is truncated, reordered,
+extended, or sealed with other associated data.
 
 ### Backends
 
