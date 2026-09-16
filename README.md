@@ -108,10 +108,13 @@ key.
 ### Sealing keys
 
 `GetSealingKey("A256GCM")` returns the group's `SealingKey`.
-`Seal(plaintext, associatedData)` encrypts, and
-`Open(ciphertext, associatedData)` returns the plaintext only for bytes
-this group's key sealed, unaltered, with the same associated data.
-Anything else is an error. The associated data is a value the caller
+`Seal(dst, associatedData)` returns a writer that seals what is written
+to it into `dst`, and `Close` finishes the sealed data. `Open(src,
+associatedData)` returns a reader of the plaintext, and it yields the
+plaintext only for bytes this group's key sealed, unaltered, with the
+same associated data. Anything else is an error, from `Open` or from a
+read, and after a read error nothing read so far can be trusted. A
+small value goes through a `bytes.Buffer` on both ends. The associated data is a value the caller
 chooses per seal and passes again to open, like a login password, and
 `nil` means none. It is not a secret. The backend's key protects the
 data, so the associated data adds nothing if that key leaks.

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/go-jose/go-jose/v4"
@@ -67,8 +68,21 @@ func NewSealer(secret []byte) (*Sealer, error) {
 	}, nil
 }
 
-// Seal returns the plaintext sealed for Open with the same associated data.
-func (sealer *Sealer) Seal(plaintext []byte, associatedData []byte) ([]byte, error) {
+// Seal returns a writer that seals what is written to it into dst for Open with the same associated data.
+func (sealer *Sealer) Seal(dst io.Writer, associatedData []byte) (io.WriteCloser, error) {
+	return SealBuffered(dst, func(plaintext []byte) ([]byte, error) {
+		return sealer.sealBytes(plaintext, associatedData)
+	}), nil
+}
+
+// Open returns a reader of the plaintext of sealed data Seal produced with the same associated data.
+func (sealer *Sealer) Open(src io.Reader, associatedData []byte) (io.Reader, error) {
+	return OpenBuffered(src, func(sealed []byte) ([]byte, error) {
+		return sealer.openBytes(sealed, associatedData)
+	})
+}
+
+func (sealer *Sealer) sealBytes(plaintext []byte, associatedData []byte) ([]byte, error) {
 	options := &jose.EncrypterOptions{}
 	if len(associatedData) > 0 {
 		options = options.WithHeader(associatedDataHeader, base64.RawURLEncoding.EncodeToString(associatedData))
@@ -82,8 +96,7 @@ func (sealer *Sealer) Seal(plaintext []byte, associatedData []byte) ([]byte, err
 	return []byte(sealed), nil
 }
 
-// Open returns the plaintext of a ciphertext Seal produced with the same associated data.
-func (sealer *Sealer) Open(ciphertext []byte, associatedData []byte) ([]byte, error) {
+func (sealer *Sealer) openBytes(ciphertext []byte, associatedData []byte) ([]byte, error) {
 	sealed := string(ciphertext)
 
 	header, err := checkShape(sealed)

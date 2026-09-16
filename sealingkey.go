@@ -1,10 +1,14 @@
 package signr
 
+import "io"
+
 // SealingKey seals data so that only Open with the same key and the same associated data recovers it.
 type SealingKey interface {
-	// Seal returns the plaintext sealed for Open with the same associated data.
-	Seal(plaintext []byte, associatedData []byte) ([]byte, error)
+	// Seal returns a writer that seals what is written to it into dst for Open with the same associated data, and
+	// Close finishes the sealed data.
+	Seal(dst io.Writer, associatedData []byte) (io.WriteCloser, error)
 
-	// Open returns the plaintext of a ciphertext Seal produced with the same associated data.
-	Open(ciphertext []byte, associatedData []byte) ([]byte, error)
+	// Open returns a reader of the plaintext of sealed data Seal produced with the same associated data, and a
+	// read error means nothing read so far can be trusted.
+	Open(src io.Reader, associatedData []byte) (io.Reader, error)
 }

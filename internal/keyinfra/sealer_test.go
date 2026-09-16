@@ -3,6 +3,7 @@ package keyinfra_test
 import (
 	"bytes"
 	"encoding/base64"
+	"io"
 	"strings"
 	"testing"
 
@@ -13,6 +14,32 @@ import (
 	"github.com/The127/signr/internal/keyinfra"
 )
 
+func seal(t *testing.T, sealer *keyinfra.Sealer, plaintext []byte) string {
+	t.Helper()
+
+	var sealed bytes.Buffer
+
+	writer, err := sealer.Seal(&sealed, nil)
+	require.NoError(t, err)
+
+	_, err = writer.Write(plaintext)
+	require.NoError(t, err)
+
+	err = writer.Close()
+	require.NoError(t, err)
+
+	return sealed.String()
+}
+
+func open(sealer *keyinfra.Sealer, sealed string) ([]byte, error) {
+	reader, err := sealer.Open(strings.NewReader(sealed), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return io.ReadAll(reader)
+}
+
 func TestASealedValueIsACompactJWEThatAJOSELibraryOpensWithTheKey(t *testing.T) {
 	// arrange
 	secret := bytes.Repeat([]byte{7}, keyinfra.SealingKeySize)
@@ -20,11 +47,10 @@ func TestASealedValueIsACompactJWEThatAJOSELibraryOpensWithTheKey(t *testing.T) 
 	require.NoError(t, err)
 
 	// act
-	sealed, err := sealer.Seal([]byte("hello"), nil)
+	sealed := seal(t, sealer, []byte("hello"))
 
 	// assert
-	require.NoError(t, err)
-	object, err := jose.ParseEncrypted(string(sealed), []jose.KeyAlgorithm{jose.DIRECT}, []jose.ContentEncryption{jose.A256GCM})
+	object, err := jose.ParseEncrypted(sealed, []jose.KeyAlgorithm{jose.DIRECT}, []jose.ContentEncryption{jose.A256GCM})
 	require.NoError(t, err)
 	opened, err := object.Decrypt(secret)
 	require.NoError(t, err)
@@ -35,9 +61,7 @@ func TestASealedValueAlteredWithoutTheKeyFailsClosedInsteadOfOpening(t *testing.
 	secret := bytes.Repeat([]byte{7}, keyinfra.SealingKeySize)
 	sealer, err := keyinfra.NewSealer(secret)
 	require.NoError(t, err)
-	sealed, err := sealer.Seal([]byte("hello"), nil)
-	require.NoError(t, err)
-	canonical := string(sealed)
+	canonical := seal(t, sealer, []byte("hello"))
 	parts := strings.Split(canonical, ".")
 	require.Len(t, parts, 5)
 	nonce, err := base64.RawURLEncoding.DecodeString(parts[2])
@@ -77,7 +101,7 @@ func TestASealedValueAlteredWithoutTheKeyFailsClosedInsteadOfOpening(t *testing.
 	for name, altered := range alterations {
 		t.Run(name, func(t *testing.T) {
 			// act
-			_, err := sealer.Open([]byte(altered), nil)
+			_, err := open(sealer, altered)
 
 			// assert
 			assert.Error(t, err)
@@ -90,15 +114,13 @@ func TestAHeaderSealNeverWritesIsRefusedBeforeTheKeyIsUsed(t *testing.T) {
 	secret := bytes.Repeat([]byte{7}, keyinfra.SealingKeySize)
 	sealer, err := keyinfra.NewSealer(secret)
 	require.NoError(t, err)
-	sealed, err := sealer.Seal([]byte("hello"), nil)
-	require.NoError(t, err)
-	parts := strings.Split(string(sealed), ".")
+	parts := strings.Split(seal(t, sealer, []byte("hello")), ".")
 	require.Len(t, parts, 5)
 	headerWithAKey := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"dir","enc":"A256GCM","jwk":{"kty":"oct","k":"AA"}}`))
 	altered := strings.Join([]string{headerWithAKey, parts[1], parts[2], parts[3], parts[4]}, ".")
 
 	// act
-	_, err = sealer.Open([]byte(altered), nil)
+	_, err = open(sealer, altered)
 
 	// assert
 	assert.ErrorContains(t, err, "not the header Seal writes")
@@ -120,7 +142,7 @@ func TestAJWEAJOSELibrarySealedWithTheKeyOpens(t *testing.T) {
 	require.NoError(t, err)
 
 	// act
-	opened, err := sealer.Open([]byte(sealed), nil)
+	opened, err := open(sealer, sealed)
 
 	// assert
 	require.NoError(t, err)

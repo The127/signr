@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/The127/signr"
+	"github.com/The127/signr/backendtest"
 )
 
 func firstKeyIDsAtOnce(t *testing.T, path string, callers int) []string {
@@ -134,10 +135,9 @@ func TestConcurrentFirstSealingCallsAgreeOnTheKeyThatSurvivesARestart(t *testing
 	// assert
 	stored, err := newGroup(t, path, "sealing").GetSealingKey("A256GCM")
 	require.NoError(t, err)
-	sealed, err := stored.Seal([]byte("hello"), nil)
-	require.NoError(t, err)
+	sealed := backendtest.Seal(t, stored, []byte("hello"), nil)
 	for _, key := range keys {
-		opened, err := key.Open(sealed, nil)
+		opened, err := backendtest.Open(key, sealed, nil)
 		require.NoError(t, err)
 		assert.Equal(t, []byte("hello"), opened)
 	}

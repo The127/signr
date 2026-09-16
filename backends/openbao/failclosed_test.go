@@ -315,11 +315,11 @@ func TestASealedValueSpelledAnotherWayFailsClosedInsteadOfOpening(t *testing.T) 
 			require.NoError(t, err)
 			key, err := manager.GetGroup("sealing").GetSealingKey("A256GCM")
 			require.NoError(t, err)
-			_, err = key.Open([]byte(canonical), nil)
+			_, err = key.Open(strings.NewReader(canonical), nil)
 			require.NoError(t, err)
 
 			// act
-			_, err = key.Open([]byte(respelled), nil)
+			_, err = key.Open(strings.NewReader(respelled), nil)
 
 			// assert
 			assert.Error(t, err)

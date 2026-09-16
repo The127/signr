@@ -30,11 +30,10 @@ func (s *SealingSuite) newSealingKey() signr.SealingKey {
 func (s *SealingSuite) TestOpenReturnsWhatSealSealed() {
 	// arrange
 	key := s.newSealingKey()
-	sealed, err := key.Seal([]byte("hello"), nil)
-	s.Require().NoError(err)
+	sealed := Seal(s.T(), key, []byte("hello"), nil)
 
 	// act
-	opened, err := key.Open(sealed, nil)
+	opened, err := Open(key, sealed, nil)
 
 	// assert
 	s.Require().NoError(err)
@@ -44,11 +43,10 @@ func (s *SealingSuite) TestOpenReturnsWhatSealSealed() {
 func (s *SealingSuite) TestOpenWithTheSameAssociatedDataReturnsWhatSealSealed() {
 	// arrange
 	key := s.newSealingKey()
-	sealed, err := key.Seal([]byte("hello"), []byte("label"))
-	s.Require().NoError(err)
+	sealed := Seal(s.T(), key, []byte("hello"), []byte("label"))
 
 	// act
-	opened, err := key.Open(sealed, []byte("label"))
+	opened, err := Open(key, sealed, []byte("label"))
 
 	// assert
 	s.Require().NoError(err)
@@ -57,13 +55,12 @@ func (s *SealingSuite) TestOpenWithTheSameAssociatedDataReturnsWhatSealSealed() 
 
 func (s *SealingSuite) TestOpeningWithOtherAssociatedDataFailsClosed() {
 	key := s.newSealingKey()
-	sealed, err := key.Seal([]byte("hello"), []byte("label"))
-	s.Require().NoError(err)
+	sealed := Seal(s.T(), key, []byte("hello"), []byte("label"))
 
 	for _, other := range [][]byte{nil, []byte("labex"), []byte("other label")} {
 		s.Run(fmt.Sprintf("%q", other), func() {
 			// act
-			_, err := key.Open(sealed, other)
+			_, err := Open(key, sealed, other)
 
 			// assert
 			s.Error(err)
@@ -77,31 +74,27 @@ func (s *SealingSuite) TestTheCiphertextDoesNotContainThePlaintext() {
 	plaintext := []byte("a message that must not be readable")
 
 	// act
-	sealed, err := key.Seal(plaintext, nil)
+	sealed := Seal(s.T(), key, plaintext, nil)
 
 	// assert
-	s.Require().NoError(err)
 	s.False(bytes.Contains(sealed, plaintext))
 }
 
 func (s *SealingSuite) TestSealingTwiceYieldsDifferentCiphertexts() {
 	// arrange
 	key := s.newSealingKey()
-	first, err := key.Seal([]byte("hello"), nil)
-	s.Require().NoError(err)
+	first := Seal(s.T(), key, []byte("hello"), nil)
 
 	// act
-	second, err := key.Seal([]byte("hello"), nil)
+	second := Seal(s.T(), key, []byte("hello"), nil)
 
 	// assert
-	s.Require().NoError(err)
 	s.NotEqual(first, second)
 }
 
 func (s *SealingSuite) TestOpeningAFlippedBitAnywhereFailsClosed() {
 	key := s.newSealingKey()
-	sealed, err := key.Seal([]byte("hello"), nil)
-	s.Require().NoError(err)
+	sealed := Seal(s.T(), key, []byte("hello"), nil)
 
 	for index := range sealed {
 		s.Run(fmt.Sprintf("byte %d", index), func() {
@@ -110,7 +103,7 @@ func (s *SealingSuite) TestOpeningAFlippedBitAnywhereFailsClosed() {
 			tampered[index] ^= 0x01
 
 			// act
-			_, err := key.Open(tampered, nil)
+			_, err := Open(key, tampered, nil)
 
 			// assert
 			s.Error(err)
@@ -120,18 +113,53 @@ func (s *SealingSuite) TestOpeningAFlippedBitAnywhereFailsClosed() {
 
 func (s *SealingSuite) TestOpeningATruncatedCiphertextFailsClosedInsteadOfPanicking() {
 	key := s.newSealingKey()
-	sealed, err := key.Seal([]byte("hello"), nil)
-	s.Require().NoError(err)
+	sealed := Seal(s.T(), key, []byte("hello"), nil)
 
 	for length := range sealed {
 		s.Run(fmt.Sprintf("%d bytes", length), func() {
 			// act
-			_, err := key.Open(sealed[:length], nil)
+			_, err := Open(key, sealed[:length], nil)
 
 			// assert
 			s.Error(err)
 		})
 	}
+}
+
+func (s *SealingSuite) TestClosingTheWriterAgainWritesNothingMore() {
+	// arrange
+	key := s.newSealingKey()
+	var sealed bytes.Buffer
+	writer, err := key.Seal(&sealed, nil)
+	s.Require().NoError(err)
+	_, err = writer.Write([]byte("hello"))
+	s.Require().NoError(err)
+	err = writer.Close()
+	s.Require().NoError(err)
+	once := bytes.Clone(sealed.Bytes())
+
+	// act
+	err = writer.Close()
+
+	// assert
+	s.Require().NoError(err)
+	s.Equal(once, sealed.Bytes())
+}
+
+func (s *SealingSuite) TestWritingAfterCloseFailsClosed() {
+	// arrange
+	key := s.newSealingKey()
+	var sealed bytes.Buffer
+	writer, err := key.Seal(&sealed, nil)
+	s.Require().NoError(err)
+	err = writer.Close()
+	s.Require().NoError(err)
+
+	// act
+	_, err = writer.Write([]byte("late"))
+
+	// assert
+	s.Error(err)
 }
 
 func (s *SealingSuite) TestAKeyFetchedAgainOpensWhatTheFirstSealed() {
@@ -141,13 +169,12 @@ func (s *SealingSuite) TestAKeyFetchedAgainOpensWhatTheFirstSealed() {
 	group := manager.GetGroup("sealing")
 	first, err := group.GetSealingKey("A256GCM")
 	s.Require().NoError(err)
-	sealed, err := first.Seal([]byte("hello"), nil)
-	s.Require().NoError(err)
+	sealed := Seal(s.T(), first, []byte("hello"), nil)
 	again, err := group.GetSealingKey("A256GCM")
 	s.Require().NoError(err)
 
 	// act
-	opened, err := again.Open(sealed, nil)
+	opened, err := Open(again, sealed, nil)
 
 	// assert
 	s.Require().NoError(err)
@@ -162,11 +189,10 @@ func (s *SealingSuite) TestOpeningAnotherGroupsCiphertextFailsClosed() {
 	s.Require().NoError(err)
 	opener, err := manager.GetGroup("b").GetSealingKey("A256GCM")
 	s.Require().NoError(err)
-	sealed, err := sealer.Seal([]byte("hello"), nil)
-	s.Require().NoError(err)
+	sealed := Seal(s.T(), sealer, []byte("hello"), nil)
 
 	// act
-	_, err = opener.Open(sealed, nil)
+	_, err = Open(opener, sealed, nil)
 
 	// assert
 	s.Error(err)
@@ -221,8 +247,7 @@ func (s *SealingSuite) TestNoCipherIsReachableByReflectionFromTheManagerTheGroup
 	group := manager.GetGroup("sealing")
 	key, err := group.GetSealingKey("A256GCM")
 	s.Require().NoError(err)
-	_, err = key.Seal([]byte("hello"), nil)
-	s.Require().NoError(err)
+	Seal(s.T(), key, []byte("hello"), nil)
 
 	// act
 	reaches := reachesCipher(reflect.ValueOf([]any{manager, group, key}))

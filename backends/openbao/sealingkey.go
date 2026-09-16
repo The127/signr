@@ -4,10 +4,12 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
 	"github.com/The127/signr"
+	"github.com/The127/signr/internal/keyinfra"
 )
 
 const sealingAlgorithm = "A256GCM"
@@ -43,8 +45,22 @@ type sealingKey struct {
 	name    string
 }
 
-// Seal asks Transit to seal the plaintext for Open with the same associated data.
-func (key *sealingKey) Seal(plaintext []byte, associatedData []byte) ([]byte, error) {
+// Seal returns a writer whose content Transit seals into dst on Close for Open with the same associated data.
+func (key *sealingKey) Seal(dst io.Writer, associatedData []byte) (io.WriteCloser, error) {
+	return keyinfra.SealBuffered(dst, func(plaintext []byte) ([]byte, error) {
+		return key.sealBytes(plaintext, associatedData)
+	}), nil
+}
+
+// Open returns a reader of the plaintext Transit recovers from sealed data Seal produced with the same associated
+// data.
+func (key *sealingKey) Open(src io.Reader, associatedData []byte) (io.Reader, error) {
+	return keyinfra.OpenBuffered(src, func(sealed []byte) ([]byte, error) {
+		return key.openBytes(sealed, associatedData)
+	})
+}
+
+func (key *sealingKey) sealBytes(plaintext []byte, associatedData []byte) ([]byte, error) {
 	response, err := key.transit.encrypt(key.name, encryptRequest{
 		Plaintext:      base64.StdEncoding.EncodeToString(plaintext),
 		AssociatedData: base64.StdEncoding.EncodeToString(associatedData),
@@ -56,8 +72,7 @@ func (key *sealingKey) Seal(plaintext []byte, associatedData []byte) ([]byte, er
 	return []byte(response.Data.Ciphertext), nil
 }
 
-// Open asks Transit for the plaintext of a ciphertext Seal produced with the same associated data.
-func (key *sealingKey) Open(ciphertext []byte, associatedData []byte) ([]byte, error) {
+func (key *sealingKey) openBytes(ciphertext []byte, associatedData []byte) ([]byte, error) {
 	sealed := string(ciphertext)
 
 	err := checkSpelling(sealed)
