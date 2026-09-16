@@ -32,6 +32,7 @@ type transitAnswers struct {
 	signature string
 	plaintext string
 	onDecrypt func(ciphertext string)
+	onEncrypt func()
 }
 
 func fakeTransit(t *testing.T, answers transitAnswers) openbao.Config {
@@ -40,6 +41,14 @@ func fakeTransit(t *testing.T, answers transitAnswers) openbao.Config {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/sign/") {
 			_, err := w.Write([]byte(`{"data":{"signature":"` + answers.signature + `"}}`))
+			assert.NoError(t, err)
+
+			return
+		}
+
+		if strings.Contains(r.URL.Path, "/encrypt/") && answers.onEncrypt != nil {
+			answers.onEncrypt()
+			_, err := w.Write([]byte(`{"data":{"ciphertext":"vault:v1:QQ=="}}`))
 			assert.NoError(t, err)
 
 			return
@@ -576,4 +585,29 @@ func TestAnEdDSASignerRefusesAContextInsteadOfDroppingIt(t *testing.T) {
 
 	// assert
 	assert.ErrorContains(t, err, "context")
+}
+
+func TestSealingAValueLargerThanOneChunkIsOneTransitRequest(t *testing.T) {
+	// arrange
+	requests := 0
+	config := fakeTransit(t, transitAnswers{
+		keyStatus: http.StatusOK,
+		key:       sealingTransitKey(t, "aes256-gcm96"),
+		onEncrypt: func() {
+			requests++
+		},
+	})
+	manager, err := signr.New(signr.Config{
+		Backend: config,
+	})
+	require.NoError(t, err)
+	key, err := manager.GetGroup("sealing").GetSealingKey("A256GCM")
+	require.NoError(t, err)
+
+	// act
+	sealed := backendtest.Seal(t, key, make([]byte, 3*64*1024), nil)
+
+	// assert
+	assert.Equal(t, 1, requests)
+	assert.Less(t, len(sealed), 3*64*1024+200)
 }

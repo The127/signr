@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/cipher"
 	"fmt"
+	"io"
 	"reflect"
 
 	"github.com/stretchr/testify/suite"
@@ -124,6 +125,35 @@ func (s *SealingSuite) TestOpeningATruncatedCiphertextFailsClosedInsteadOfPanick
 			s.Error(err)
 		})
 	}
+}
+
+func (s *SealingSuite) TestAValueLargerThanOneChunkRoundTripsWrittenAndReadInPieces() {
+	// arrange
+	key := s.newSealingKey()
+	plaintext := make([]byte, 2*64*1024+5)
+	for index := range plaintext {
+		plaintext[index] = byte(index)
+	}
+	var sealed bytes.Buffer
+	writer, err := key.Seal(&sealed, []byte("label"))
+	s.Require().NoError(err)
+	for _, piece := range [][]byte{plaintext[:3], plaintext[3:70000], plaintext[70000:]} {
+		_, err = writer.Write(piece)
+		s.Require().NoError(err)
+	}
+	err = writer.Close()
+	s.Require().NoError(err)
+	s.Require().Less(sealed.Len(), len(plaintext)+200)
+
+	// act
+	reader, err := key.Open(&sealed, []byte("label"))
+
+	// assert
+	s.Require().NoError(err)
+	var opened bytes.Buffer
+	_, err = io.CopyBuffer(&opened, reader, make([]byte, 1000))
+	s.Require().NoError(err)
+	s.Equal(plaintext, opened.Bytes())
 }
 
 func (s *SealingSuite) TestClosingTheWriterAgainWritesNothingMore() {
