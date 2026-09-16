@@ -4,10 +4,12 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
 	"github.com/The127/signr"
+	"github.com/The127/signr/internal/keyinfra"
 )
 
 const sealingAlgorithm = "A256GCM"
@@ -43,11 +45,21 @@ type sealingKey struct {
 	name    string
 }
 
-// Seal asks Transit to seal the plaintext for Open with the same associated data.
-func (key *sealingKey) Seal(plaintext []byte, associatedData []byte) ([]byte, error) {
+// Seal returns a writer that seals what is written to it into dst under a data key Transit wraps, for Open with the
+// same associated data.
+func (key *sealingKey) Seal(dst io.Writer, associatedData []byte) (io.WriteCloser, error) {
+	return keyinfra.SealStream(dst, associatedData, key.wrap)
+}
+
+// Open returns a reader of the plaintext of sealed data Seal produced with the same associated data, with the data
+// key Transit unwraps.
+func (key *sealingKey) Open(src io.Reader, associatedData []byte) (io.Reader, error) {
+	return keyinfra.OpenStream(src, associatedData, key.unwrap)
+}
+
+func (key *sealingKey) wrap(dataKey []byte) ([]byte, error) {
 	response, err := key.transit.encrypt(key.name, encryptRequest{
-		Plaintext:      base64.StdEncoding.EncodeToString(plaintext),
-		AssociatedData: base64.StdEncoding.EncodeToString(associatedData),
+		Plaintext: base64.StdEncoding.EncodeToString(dataKey),
 	})
 	if err != nil {
 		return nil, err
@@ -56,9 +68,8 @@ func (key *sealingKey) Seal(plaintext []byte, associatedData []byte) ([]byte, er
 	return []byte(response.Data.Ciphertext), nil
 }
 
-// Open asks Transit for the plaintext of a ciphertext Seal produced with the same associated data.
-func (key *sealingKey) Open(ciphertext []byte, associatedData []byte) ([]byte, error) {
-	sealed := string(ciphertext)
+func (key *sealingKey) unwrap(wrapped []byte) ([]byte, error) {
+	sealed := string(wrapped)
 
 	err := checkSpelling(sealed)
 	if err != nil {
@@ -66,19 +77,18 @@ func (key *sealingKey) Open(ciphertext []byte, associatedData []byte) ([]byte, e
 	}
 
 	response, err := key.transit.decrypt(key.name, decryptRequest{
-		Ciphertext:     sealed,
-		AssociatedData: base64.StdEncoding.EncodeToString(associatedData),
+		Ciphertext: sealed,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	plaintext, err := base64.StdEncoding.DecodeString(response.Data.Plaintext)
+	dataKey, err := base64.StdEncoding.DecodeString(response.Data.Plaintext)
 	if err != nil {
 		return nil, fmt.Errorf("decoding the transit plaintext: %w", err)
 	}
 
-	return plaintext, nil
+	return dataKey, nil
 }
 
 // Transit parses sealed data leniently, so another spelling of the same ciphertext would open although its bytes changed

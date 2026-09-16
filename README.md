@@ -34,7 +34,9 @@ go get github.com/The127/signr/backends/memory
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/The127/signr"
@@ -55,8 +57,13 @@ func main() {
 		panic(err)
 	}
 
+	sign(manager.GetGroup("tokens"))
+	seal(manager.GetGroup("tokens"))
+}
+
+func sign(group signr.KeyGroup) {
 	// The first call for an algorithm generates the key.
-	key, err := manager.GetGroup("tokens").GetKey("EdDSA")
+	key, err := group.GetKey("EdDSA")
 	if err != nil {
 		panic(err)
 	}
@@ -72,6 +79,41 @@ func main() {
 	}
 
 	fmt.Printf("%s signed by %s\n", key.Algorithm(), key.KeyID())
+}
+
+func seal(group signr.KeyGroup) {
+	key, err := group.GetSealingKey("A256GCM")
+	if err != nil {
+		panic(err)
+	}
+
+	// Seal streams into any writer, a small value goes through a buffer.
+	var sealed bytes.Buffer
+	writer, err := key.Seal(&sealed, []byte("label"))
+	if err != nil {
+		panic(err)
+	}
+	_, err = writer.Write([]byte("secret"))
+	if err != nil {
+		panic(err)
+	}
+	err = writer.Close()
+	if err != nil {
+		panic(err)
+	}
+	sealedBytes := sealed.Len()
+
+	// Open needs the same associated data, anything else is an error.
+	reader, err := key.Open(&sealed, []byte("label"))
+	if err != nil {
+		panic(err)
+	}
+	opened, err := io.ReadAll(reader)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("%d sealed bytes opened to %q\n", sealedBytes, opened)
 }
 ```
 
@@ -108,22 +150,27 @@ key.
 ### Sealing keys
 
 `GetSealingKey("A256GCM")` returns the group's `SealingKey`.
-`Seal(plaintext, associatedData)` encrypts, and
-`Open(ciphertext, associatedData)` returns the plaintext only for bytes
-this group's key sealed, unaltered, with the same associated data.
-Anything else is an error. The associated data is a value the caller
+`Seal(dst, associatedData)` returns a writer that seals what is written
+to it into `dst`, and `Close` finishes the sealed data. `Open(src,
+associatedData)` returns a reader of the plaintext, and it yields the
+plaintext only for bytes this group's key sealed, unaltered, with the
+same associated data. Anything else is an error, from `Open` or from a
+read, and after a read error nothing read so far can be trusted. A
+small value goes through a `bytes.Buffer` on both ends. The associated data is a value the caller
 chooses per seal and passes again to open, like a login password, and
 `nil` means none. It is not a secret. The backend's key protects the
 data, so the associated data adds nothing if that key leaks.
 
-The memory and directory backends seal as a compact JWE (RFC 7516) with
-`dir` and `A256GCM`, so any JOSE library opens a sealed value with the
-key. Associated data that is not empty travels base64url-encoded in the
-protected header `aad`, readable by anyone who sees the sealed value.
-`Open` accepts only the exact shape `Seal` writes, before any key work:
-five parts in canonical base64url, no encrypted key, a 16-byte tag, and
-a header of `alg`, `enc` and `aad` spelled the one way `Seal` spells
-it.
+The memory and directory backends seal as a chunked stream. Every
+`Seal` draws a fresh data key, wraps it with A256KW (RFC 3394) under
+the group's key into a short header, and seals the data in 64 KiB
+chunks with AES-256-GCM under the data key, so the group's key only
+ever wraps and the data never travels anywhere. The header is a version
+byte, a two-byte length and the wrapped key. Each chunk's nonce is its
+counter and a flag on the last chunk, and its associated data is the
+version byte and the caller's associated data, which is written
+nowhere. `Open` refuses a stream that is truncated, reordered,
+extended, or sealed with other associated data.
 
 ### Backends
 
@@ -151,10 +198,14 @@ answers a fixed token. Redirects are not followed, so the token never
 travels to another host. Group names are letters, digits, `_` and `-`.
 The first `GetSealingKey` creates the Transit key `<group>-A256GCM`
 as `aes256-gcm96`, and a key Transit holds under that name as another
-type is refused. Transit seals and opens, so every `Seal` and `Open` is
-one request and the plaintext travels to OpenBao. Sealed data is
-Transit's `vault:v<version>:<base64>` text, and `Open` refuses base64
-that is not in its one canonical form.
+type is refused. The backend seals the same chunked stream as the
+others, and Transit only wraps the data key: every `Seal` and `Open`
+is one request carrying 32 bytes, and the plaintext never leaves the
+process. The header holds Transit's `vault:v<version>:<base64>` text
+for the data key, so any Transit client with the key can unwrap it,
+and `Open` refuses a spelling of it that is not the one Transit wrote.
+Transit wraps a key version at most about four billion times, so set
+`auto_rotate_period` on the key.
 
 The directory backend keeps each key as a PEM file at
 `<path>/<group>/<algorithm>.pem`, so keys survive a restart. The path

@@ -11,6 +11,7 @@ import (
 
 	"github.com/The127/signr"
 	"github.com/The127/signr/backends/directory"
+	"github.com/The127/signr/backendtest"
 )
 
 func newGroup(t *testing.T, path string, name string) signr.KeyGroup {
@@ -62,13 +63,12 @@ func TestASealedValueSurvivesARestart(t *testing.T) {
 	path := t.TempDir()
 	key, err := newGroup(t, path, "sealing").GetSealingKey("A256GCM")
 	require.NoError(t, err)
-	sealed, err := key.Seal([]byte("hello"), []byte("label"))
-	require.NoError(t, err)
+	sealed := backendtest.Seal(t, key, []byte("hello"), []byte("label"))
 	again, err := newGroup(t, path, "sealing").GetSealingKey("A256GCM")
 	require.NoError(t, err)
 
 	// act
-	opened, err := again.Open(sealed, []byte("label"))
+	opened, err := backendtest.Open(again, sealed, []byte("label"))
 
 	// assert
 	require.NoError(t, err)
