@@ -2,6 +2,8 @@ module github.com/The127/signr
 
 go 1.27.0
 
+toolchain go1.27.4
+
 require (
 	github.com/go-jose/go-jose/v4 v4.1.5
 	github.com/golang-jwt/jwt/v5 v5.3.1
